@@ -338,7 +338,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
                     onChange={(e) =>
                       handleInputChange("energy", parseInt(e.target.value))
                     }
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="range-slider w-full h-2 bg-gray-200 rounded-lg cursor-pointer"
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
                     <span>Low</span>
