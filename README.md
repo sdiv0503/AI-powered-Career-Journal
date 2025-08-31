@@ -2,7 +2,7 @@
 
 A modern, interactive web application for tracking coding progress and career development.
 
-![Career Journal Screenshot](https://via.placeholder.com/800x400?text=Career+Journal+Preview)
+![Career Journal Screenshot](images\image.png)
 
 ## ✨ Features
 
@@ -17,7 +17,7 @@ A modern, interactive web application for tracking coding progress and career de
 
 ## 🚀 Live Demo
 
-**[View Live Application](https://your-app-url.vercel.app)**
+**[View Live Application](https://careerjournal.vercel.app/)**
 
 ## 🛠️ Built With
 
@@ -37,7 +37,7 @@ A modern, interactive web application for tracking coding progress and career de
 ### Installation
 
 1. Clone the repository:
-git clone https://github.com/YourUsername/career-journal.git
+git clone https://github.com/sdiv0503/AI-powered-Career-Journal.git
 cd career-journal
 
 2. Install dependencies:
@@ -59,9 +59,9 @@ cd career-journal
 ## 👨‍💻 Author
 
 **Your Name**
-- GitHub: [@YourUsername](https://github.com/YourUsername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+- GitHub: [@YourUsername](https://github.com/sdiv0503)
+- LinkedIn: [Your LinkedIn](http://linkedin.com/in/divyanshhsharma)
+- Email: sharmadivyansh067@gmail.com
 
 ## 📄 License
 
