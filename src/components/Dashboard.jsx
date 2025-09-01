@@ -1,37 +1,132 @@
+// Updated Dashboard with cleaned UI and fixed date issues
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { getUserJournalEntries, deleteJournalEntry } from '../services/journalService';
 import EntryCard from './EntryCard';
 import EditModal from './EditModal';
+import LoadingSpinner from './LoadingSpinner';
 
 function Dashboard({ onBackToHome, onStartJournal }) {
   const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [streak, setStreak] = useState(0);
+  
+  const { currentUser } = useAuth();
 
-  // Load entries from localStorage on component mount
+  // Real-time listener for entries
   useEffect(() => {
-    const savedEntries = localStorage.getItem('journalEntries');
-    if (savedEntries) {
-      setEntries(JSON.parse(savedEntries));
-    }
-  }, []);
+    if (!currentUser) return;
 
-  // Save entries to localStorage whenever entries change
-  const saveEntriesToStorage = (updatedEntries) => {
-    localStorage.setItem('journalEntries', JSON.stringify(updatedEntries));
-    setEntries(updatedEntries);
+    const entriesQuery = query(
+      collection(db, 'users', currentUser.uid, 'journalEntries'),
+      orderBy('date', 'desc'),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(
+      entriesQuery,
+      (snapshot) => {
+        const entriesData = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          entriesData.push({
+            id: doc.id,
+            ...data
+          });
+        });
+
+        setEntries(entriesData);
+        setStreak(calculateStreak(entriesData));
+        setLoading(false);
+      },
+      (error) => {
+        // Fallback to manual fetch
+        loadEntries();
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Fallback manual loading
+  const loadEntries = async () => {
+    if (!currentUser) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      const userEntries = await getUserJournalEntries(currentUser.uid);
+      setEntries(userEntries);
+      setStreak(calculateStreak(userEntries));
+    } catch (error) {
+      setError('Failed to load journal entries. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Delete entry function
-  const handleDeleteEntry = (entryId) => {
+  // Fixed streak calculation
+  const calculateStreak = (entries) => {
+    if (!entries || entries.length === 0) return 0;
+
+    // Get unique dates with entries
+    const datesWithEntries = new Set();
+    entries.forEach(entry => {
+      // Handle different date formats
+      let dateStr;
+      if (entry.date) {
+        dateStr = entry.date;
+      } else if (entry.timestamp?.toDate) {
+        dateStr = entry.timestamp.toDate().toISOString().slice(0, 10);
+      } else if (entry.timestamp) {
+        dateStr = new Date(entry.timestamp).toISOString().slice(0, 10);
+      } else if (entry.createdAt?.toDate) {
+        dateStr = entry.createdAt.toDate().toISOString().slice(0, 10);
+      }
+      
+      if (dateStr) {
+        datesWithEntries.add(dateStr);
+      }
+    });
+
+    let streakCount = 0;
+    let currentDate = new Date();
+    
+    // Check consecutive days starting from today
+    while (true) {
+      const dateStr = currentDate.toISOString().slice(0, 10);
+      
+      if (datesWithEntries.has(dateStr)) {
+        streakCount++;
+        currentDate.setDate(currentDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    return streakCount;
+  };
+
+  // Delete entry function with Firestore
+  const handleDeleteEntry = async (entryId) => {
     const confirmDelete = window.confirm(
       'Are you sure you want to delete this journal entry? This action cannot be undone.'
     );
     
     if (confirmDelete) {
-      const updatedEntries = entries.filter(entry => entry.id !== entryId);
-      saveEntriesToStorage(updatedEntries);
+      try {
+        await deleteJournalEntry(currentUser.uid, entryId);
+        setEntries(prev => prev.filter(entry => entry.id !== entryId));
+      } catch (error) {
+        alert('Failed to delete entry. Please try again.');
+      }
     }
   };
 
@@ -43,10 +138,9 @@ function Dashboard({ onBackToHome, onStartJournal }) {
 
   // Save edited entry
   const handleSaveEdit = (updatedEntry) => {
-    const updatedEntries = entries.map(entry => 
+    setEntries(prev => prev.map(entry => 
       entry.id === updatedEntry.id ? updatedEntry : entry
-    );
-    saveEntriesToStorage(updatedEntries);
+    ));
     setIsEditModalOpen(false);
     setEditingEntry(null);
   };
@@ -54,8 +148,8 @@ function Dashboard({ onBackToHome, onStartJournal }) {
   // Filter and sort entries
   const filteredAndSortedEntries = entries
     .filter(entry => 
-      entry.progress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.technologies.some(tech => 
+      entry.progress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.technologies?.some(tech => 
         tech.toLowerCase().includes(searchTerm.toLowerCase())
       ) ||
       new Date(entry.date).toLocaleDateString().includes(searchTerm)
@@ -66,12 +160,32 @@ function Dashboard({ onBackToHome, onStartJournal }) {
           return new Date(b.date) - new Date(a.date);
         case 'date-asc':
           return new Date(a.date) - new Date(b.date);
-        case 'mood':
-          return a.mood.localeCompare(b.mood);
+        case 'productivity':
+          return (b.productivity || 5) - (a.productivity || 5);
         default:
           return 0;
       }
     });
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={loadEntries}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -104,6 +218,19 @@ function Dashboard({ onBackToHome, onStartJournal }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Streak Display */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">🔥 Current Streak</h2>
+              <p className="text-gray-600">Consecutive days of journaling</p>
+            </div>
+            <div className="text-4xl font-bold text-blue-600">
+              {streak} {streak === 1 ? 'day' : 'days'}
+            </div>
+          </div>
+        </div>
+
         {/* Search and Filter Bar */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4">
@@ -133,7 +260,7 @@ function Dashboard({ onBackToHome, onStartJournal }) {
               >
                 <option value="date-desc">Latest First</option>
                 <option value="date-asc">Oldest First</option>
-                <option value="mood">By Mood</option>
+                <option value="productivity">By Productivity</option>
               </select>
             </div>
           </div>
@@ -157,7 +284,7 @@ function Dashboard({ onBackToHome, onStartJournal }) {
                 onClick={onStartJournal}
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300"
               >
-                Create First Entry 🚀
+                ✏️ Create First Entry 🚀
               </button>
             )}
           </div>

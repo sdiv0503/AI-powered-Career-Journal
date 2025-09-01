@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
+import { useAuth } from '../contexts/AuthContext';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import SuccessMessage from "./SuccessMessage";
 
 function JournalForm({ onBackToHome, onViewDashboard }) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
+  const { currentUser } = useAuth();
+
+  const initialFormData = {
     date: new Date().toISOString().split("T")[0],
     mood: "",
     energy: 5,
@@ -19,8 +23,10 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     quickWins: ["", "", ""],
     tomorrowGoals: "",
     reflectionAnswers: {},
-  });
+  };
 
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState(initialFormData);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [streak, setStreak] = useState(0);
@@ -194,49 +200,74 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
 
   // Navigation functions with proper event prevention
   const nextStep = (e) => {
-    e?.preventDefault(); // Prevent any accidental form submission
+    e?.preventDefault();
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = (e) => {
-    e?.preventDefault(); // Prevent any accidental form submission
+    e?.preventDefault();
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.progress.trim()) {
-      alert("Please add some progress notes!");
+    if (!currentUser) {
+      alert('You must be logged in to create a journal entry.');
       return;
     }
 
-    setIsSubmitting(true);
+    try {
+      setIsSubmitting(true);
 
-    setTimeout(() => {
-      const existingEntries = JSON.parse(
-        localStorage.getItem("journalEntries") || "[]"
-      );
-      const newEntry = {
-        ...formData,
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
+      const entryData = {
+        date: new Date().toISOString().slice(0, 10),
+        timestamp: new Date(),
+        progress: formData.progress,
+        mood: formData.mood,
+        technologies: formData.technologies,
+        activities: formData.activities,
+        energy: formData.energy,
+        productivity: formData.productivity,
+        focus: formData.focus,
+        learnings: formData.learnings,
+        challenges: formData.challenges,
+        timeSpent: formData.timeSpent,
+        codeSnippet: formData.codeSnippet,
+        quickWins: formData.quickWins,
+        tomorrowGoals: formData.tomorrowGoals,
+        reflectionAnswers: formData.reflectionAnswers,
+        userId: currentUser.uid,
+        createdAt: new Date(),
       };
 
-      existingEntries.unshift(newEntry);
-      localStorage.setItem("journalEntries", JSON.stringify(existingEntries));
-      localStorage.removeItem("journalDraft"); // Clear draft
+      console.log("Saving entry with data:", entryData);
 
-      setIsSubmitting(false);
+      const docRef = await addDoc(
+        collection(db, "users", currentUser.uid, "journalEntries"),
+        entryData
+      );
+
+      console.log("Entry saved with ID:", docRef.id);
+
+      // Clear draft and reset form
+      localStorage.removeItem("journalDraft");
+      setFormData(initialFormData);
+      setCurrentStep(1);
       setShowSuccess(true);
-    }, 1500);
+      
+    } catch (error) {
+      console.error("Error saving entry:", error);
+      alert('Failed to save entry. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // (includes onViewDashboard prop):
   if (showSuccess) {
     return (
       <SuccessMessage

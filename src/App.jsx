@@ -1,58 +1,21 @@
-import { useState } from 'react';
-import Header from './components/Header';
-import Hero from './components/Hero';
-import Features from './components/Features';
-import Footer from './components/Footer';
-import JournalForm from './components/JournalForm';
-import Dashboard from './components/Dashboard';
+// Main app with global error boundary
+import { useAuth } from './contexts/AuthContext';
+import AuthContainer from './components/auth/AuthContainer';
+import AuthenticatedApp from './components/AuthenticatedApp';
+import LoadingSpinner from './components/LoadingSpinner';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'journal', 'dashboard'
+  const { currentUser, loading } = useAuth();
 
-  const handleStartJournal = () => {
-    setCurrentView('journal');
-  };
-
-  const handleViewDashboard = () => {
-    setCurrentView('dashboard');
-  };
-
-  const handleBackToHome = () => {
-    setCurrentView('home');
-  };
-
-  // Render Journal Form
-  if (currentView === 'journal') {
-    return (
-      <JournalForm 
-        onBackToHome={handleBackToHome} 
-        onViewDashboard={handleViewDashboard} 
-      />
-    );
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
-  // Render Dashboard
-  if (currentView === 'dashboard') {
-    return (
-      <Dashboard 
-        onBackToHome={handleBackToHome} 
-        onStartJournal={handleStartJournal} 
-      />
-    );
-  }
-
-  // Render Landing Page
   return (
-    <div className="min-h-screen bg-white">
-      <Header 
-        onStartJournal={handleStartJournal} 
-        onViewDashboard={handleViewDashboard}
-        currentView={currentView}
-      />
-      <Hero onStartJournal={handleStartJournal} />
-      <Features />
-      <Footer />
-    </div>
+    <ErrorBoundary>
+      {currentUser ? <AuthenticatedApp /> : <AuthContainer />}
+    </ErrorBoundary>
   );
 }
 
