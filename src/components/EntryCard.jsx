@@ -1,11 +1,25 @@
+import { useState } from 'react';
+
 function EntryCard({ entry, onEdit, onDelete }) {
+  const [showFullProgress, setShowFullProgress] = useState(false);
+
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    if (!dateString) return 'No date';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   const getMoodEmoji = (mood) => {
@@ -21,7 +35,7 @@ function EntryCard({ entry, onEdit, onDelete }) {
 
   const getTimeSpentText = (timeSpent = { hours: 0, minutes: 0 }) => {
     const { hours = 0, minutes = 0 } = timeSpent || {};
-    if (hours === 0 && minutes === 0) return 'No time';  // ← Shortened text
+    if (hours === 0 && minutes === 0) return 'No time';
     if (hours === 0) return `${minutes}m`;
     if (minutes === 0) return `${hours}h`;
     return `${hours}h ${minutes}m`;
@@ -64,7 +78,7 @@ function EntryCard({ entry, onEdit, onDelete }) {
           </div>
         </div>
 
-        {/* Metadata Grid - Fixed Overflow Issue */}
+        {/* Metadata Grid */}
         <div className="grid grid-cols-3 gap-3">
           {/* Mood Section */}
           <div className="flex flex-col items-center justify-center bg-gray-50 rounded-xl p-3 min-h-[60px]">
@@ -72,7 +86,7 @@ function EntryCard({ entry, onEdit, onDelete }) {
             <span className="text-xs font-medium text-gray-600">Mood</span>
           </div>
           
-          {/* Time Section - FIXED OVERFLOW */}
+          {/* Time Section */}
           <div className="flex flex-col items-center justify-center bg-gray-50 rounded-xl p-3 min-h-[60px] overflow-hidden">
             <div className="flex items-center justify-center w-full px-1">
               <svg className="w-3 h-3 text-gray-500 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,9 +123,24 @@ function EntryCard({ entry, onEdit, onDelete }) {
             <div className="w-1 h-4 bg-blue-500 rounded-full mr-3"></div>
             <h4 className="font-semibold text-gray-900 text-sm">Progress</h4>
           </div>
-          <p className="text-gray-700 text-sm leading-relaxed line-clamp-3 pl-4">
-            {entry.progress || 'No progress details available'}
-          </p>
+          <div className="pl-4">
+            <p className="text-gray-700 text-sm leading-relaxed">
+              {showFullProgress 
+                ? entry.progress 
+                : (entry.progress?.length > 120 
+                    ? `${entry.progress.slice(0, 120)}...` 
+                    : entry.progress || 'No progress details available')
+              }
+            </p>
+            {entry.progress?.length > 120 && (
+              <button
+                onClick={() => setShowFullProgress(!showFullProgress)}
+                className="text-blue-600 hover:text-blue-700 text-sm mt-2 font-medium"
+              >
+                {showFullProgress ? 'Show less' : 'Show more'}
+              </button>
+            )}
+          </div>
         </section>
 
         {/* Technologies & Activities Grid */}
@@ -187,7 +216,7 @@ function EntryCard({ entry, onEdit, onDelete }) {
           </div>
         </section>
 
-        {/* Additional Sections - Compact */}
+        {/* Additional Sections - Optional */}
         {(entry.quickWins?.some(win => win?.trim()) || entry.challenges?.trim() || entry.learnings?.trim()) && (
           <section className="space-y-3 pt-2 border-t border-gray-100">
             {/* Quick Wins */}
@@ -195,9 +224,9 @@ function EntryCard({ entry, onEdit, onDelete }) {
               <div>
                 <div className="flex items-center mb-2">
                   <div className="w-1 h-3 bg-emerald-500 rounded-full mr-2"></div>
-                  <h4 className="font-semibold text-gray-900 text-xs">Quick Wins</h4>
+                  <h4 className="font-semibold text-gray-900 text-xs">🎉 Quick Wins</h4>
                 </div>
-                <div className="text-xs text-gray-700 space-y-1">
+                <div className="text-xs text-gray-700 space-y-1 pl-3">
                   {entry.quickWins.filter(win => win?.trim()).slice(0, 2).map((win, index) => (
                     <div key={index} className="flex items-start">
                       <span className="text-emerald-500 mr-2 mt-0.5 text-xs">•</span>
@@ -215,9 +244,9 @@ function EntryCard({ entry, onEdit, onDelete }) {
                   <div>
                     <div className="flex items-center mb-1">
                       <div className="w-1 h-3 bg-red-500 rounded-full mr-2"></div>
-                      <h4 className="font-semibold text-gray-900 text-xs">Challenges</h4>
+                      <h4 className="font-semibold text-gray-900 text-xs">🚧 Challenges</h4>
                     </div>
-                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{entry.challenges}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed pl-3">{entry.challenges}</p>
                   </div>
                 )}
                 
@@ -225,9 +254,9 @@ function EntryCard({ entry, onEdit, onDelete }) {
                   <div>
                     <div className="flex items-center mb-1">
                       <div className="w-1 h-3 bg-purple-500 rounded-full mr-2"></div>
-                      <h4 className="font-semibold text-gray-900 text-xs">Learnings</h4>
+                      <h4 className="font-semibold text-gray-900 text-xs">💡 Learnings</h4>
                     </div>
-                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{entry.learnings}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed pl-3">{entry.learnings}</p>
                   </div>
                 )}
               </div>
@@ -235,18 +264,6 @@ function EntryCard({ entry, onEdit, onDelete }) {
           </section>
         )}
       </main>
-
-      {/* Footer - Minimal */}
-      <footer className="px-6 py-3 bg-gray-50 rounded-b-2xl border-t border-gray-100">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>
-            {entry.timestamp ? new Date(entry.timestamp).toLocaleDateString() : 'Unknown date'}
-          </span>
-          <span className="font-mono text-xs">
-            #{entry.id?.toString().slice(-4) || 'N/A'}
-          </span>
-        </div>
-      </footer>
     </article>
   );
 }

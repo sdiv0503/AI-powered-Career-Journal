@@ -37,7 +37,9 @@ A modern, interactive web application for tracking coding progress and career de
 ### Installation
 
 1. Clone the repository:
-git clone https://github.com/sdiv0503/AI-powered-Career-Journal.git
+
+git clone https://github.com/sdiv0503/AI-powered-Career-Journal.git 
+
 cd career-journal
 
 2. Install dependencies:
