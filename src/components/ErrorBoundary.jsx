@@ -31,7 +31,7 @@ class ErrorBoundary extends React.Component {
     const errorData = {
       message: error.message,
       stack: error.stack,
-      componentStack: errorInfo.componentStack,
+      componentStack: errorInfo?.componentStack || 'Component stack not available',
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       url: window.location.href
@@ -77,7 +77,7 @@ class ErrorBoundary extends React.Component {
                   <pre className="mt-2 text-xs bg-gray-100 p-4 rounded overflow-auto">
                     {this.state.error && this.state.error.toString()}
                     <br />
-                    {this.state.errorInfo.componentStack}
+                    {this.state.errorInfo?.componentStack || 'Component stack not available'}
                   </pre>
                 </details>
               )}
