@@ -1,9 +1,10 @@
-// Comprehensive user profile page with statistics and settings
+// Updated Profile.jsx using persistent streak data from StreakContext
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getUserProfileWithStats, updateUserDisplayName } from '../services/userService';
 import LoadingSpinner from './LoadingSpinner';
+import { StreakService } from '../services/streakService';
 
 export default function Profile({ onBackToHome }) {
   const [profileData, setProfileData] = useState(null);
@@ -12,9 +13,32 @@ export default function Profile({ onBackToHome }) {
   const [editing, setEditing] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [streakData, setStreakData] = useState({
+    currentStreak: 0,
+    longestStreak: 0,
+    totalEntries: 0,
+    lastEntryDate: null
+  });
 
   const { currentUser, userProfile } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+
+  // Load streak data
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadStreakData = async () => {
+      try {
+        const streakService = new StreakService(currentUser.uid);
+        const data = await streakService.validateCurrentStreak();
+        setStreakData(data);
+      } catch (error) {
+        console.error('Error loading streak data:', error);
+      }
+    };
+
+    loadStreakData();
+  }, [currentUser]);
 
   useEffect(() => {
     loadProfileData();
@@ -45,7 +69,6 @@ export default function Profile({ onBackToHome }) {
       setSaving(true);
       await updateUserDisplayName(currentUser, newDisplayName.trim());
       
-      // Update local data
       setProfileData(prev => ({
         ...prev,
         profile: {
@@ -207,12 +230,28 @@ export default function Profile({ onBackToHome }) {
               }`}>
                 📅 Member since {formatDate(profileData.profile.createdAt)}
               </div>
+
+              {/* Persistent Streak Display */}
+              <div className="mt-4 p-4 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-xl shadow-lg">
+                <div className="text-center">
+                  <div className="text-2xl font-bold mb-1">
+                    🔥 {streakData.currentStreak || 0}
+                  </div>
+                  <p className="text-sm opacity-90">
+                    {(streakData.currentStreak || 0) === 1 ? 'Day Streak' : 'Days Streak'}
+                  </p>
+                  <div className="flex justify-between text-xs opacity-80 mt-2 pt-2 border-t border-white/20">
+                    <span>Best: {streakData.longestStreak || 0}d</span>
+                    <span>Total: {streakData.totalEntries || 0}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Statistics Cards */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Quick Stats Grid */}
+            {/* Quick Stats Grid - Updated with persistent streak data */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className={`p-4 rounded-xl text-center transition-colors duration-300 ${
                 isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -244,8 +283,8 @@ export default function Profile({ onBackToHome }) {
                 isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
               } border`}>
                 <div className="text-2xl font-bold text-orange-600 mb-1 flex items-center justify-center">
-                  {getStreakEmoji(profileData.stats.currentStreak)}
-                  {profileData.stats.currentStreak}
+                  {getStreakEmoji(streakData.currentStreak || 0)}
+                  {streakData.currentStreak || 0}
                 </div>
                 <div className={`text-xs transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -316,7 +355,7 @@ export default function Profile({ onBackToHome }) {
                   </div>
                 </div>
 
-                {/* Trends */}
+                {/* Trends - Updated with persistent streak data */}
                 <div>
                   <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-200' : 'text-gray-700'
@@ -342,17 +381,17 @@ export default function Profile({ onBackToHome }) {
                         Longest Streak
                       </span>
                       <span className="font-semibold">
-                        {profileData.stats.longestStreak} days
+                        {streakData.longestStreak || 0} days
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={`text-sm transition-colors duration-300 ${
                         isDarkMode ? 'text-gray-400' : 'text-gray-600'
                       }`}>
-                        Most Active Month
+                        Last Entry
                       </span>
                       <span className="font-semibold">
-                        {profileData.stats.mostActiveMonth || 'N/A'}
+                        {streakData.lastEntryDate ? new Date(streakData.lastEntryDate).toLocaleDateString() : 'None'}
                       </span>
                     </div>
                   </div>

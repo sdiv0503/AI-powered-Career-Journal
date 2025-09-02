@@ -1,4 +1,35 @@
-function SuccessMessage({ onBackToHome,onViewDashboard, streak = 1 }) {
+import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { StreakService } from '../services/streakService';
+
+function SuccessMessage({ onBackToHome, onViewDashboard }) {
+  const { currentUser } = useAuth();
+  const [streakData, setStreakData] = useState({ 
+    currentStreak: 1, 
+    longestStreak: 1,
+    totalEntries: 1 
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchStreakData = async () => {
+      try {
+        const streakService = new StreakService(currentUser.uid);
+        const data = await streakService.validateCurrentStreak();
+        setStreakData(data);
+      } catch (error) {
+        console.error('Error fetching streak data:', error);
+        // Keep default values if fetch fails
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStreakData();
+  }, [currentUser]);
+
   const getStreakMessage = (days) => {
     if (days === 1)
       return "Great start! You've begun your coding journal journey! 🌱";
@@ -41,11 +72,32 @@ function SuccessMessage({ onBackToHome,onViewDashboard, streak = 1 }) {
     };
   };
 
-  const achievement = getAchievementBadge(streak);
+  const currentStreak = streakData.currentStreak || 1;
+  const achievement = getAchievementBadge(currentStreak);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your streak data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center">
+        {/* Success Animation
+        <div className="mb-6">
+          <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        </div> */}
+
         {/* Streak Display */}
         <div className="mb-6">
           <div
@@ -58,10 +110,10 @@ function SuccessMessage({ onBackToHome,onViewDashboard, streak = 1 }) {
           </h2>
           <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-xl p-4 mb-4">
             <p className="text-2xl font-bold text-gray-800">
-              🔥 {streak} Day Streak!
+              🔥 {currentStreak} Day Streak!
             </p>
             <p className="text-sm text-gray-600 mt-1">
-              {getStreakMessage(streak)}
+              {getStreakMessage(currentStreak)}
             </p>
           </div>
         </div>
@@ -77,21 +129,26 @@ function SuccessMessage({ onBackToHome,onViewDashboard, streak = 1 }) {
           <p className="text-purple-700">
             You're building an incredible coding habit!
           </p>
+          {streakData.longestStreak > currentStreak && (
+            <p className="text-sm text-purple-600 mt-2">
+              Personal best: {streakData.longestStreak} days
+            </p>
+          )}
         </div>
 
-        {/* Quick Stats */}
+        {/* Enhanced Quick Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8 text-center">
           <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-blue-600">{streak}</div>
-            <div className="text-xs text-blue-500">Day Streak</div>
+            <div className="text-2xl font-bold text-blue-600">{currentStreak}</div>
+            <div className="text-xs text-blue-500">Current Streak</div>
           </div>
           <div className="bg-green-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-green-600">📈</div>
-            <div className="text-xs text-green-500">Growing</div>
+            <div className="text-2xl font-bold text-green-600">{streakData.longestStreak || currentStreak}</div>
+            <div className="text-xs text-green-500">Best Streak</div>
           </div>
           <div className="bg-purple-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-purple-600">💪</div>
-            <div className="text-xs text-purple-500">Consistent</div>
+            <div className="text-2xl font-bold text-purple-600">{streakData.totalEntries || 1}</div>
+            <div className="text-xs text-purple-500">Total Entries</div>
           </div>
         </div>
 
@@ -122,8 +179,7 @@ function SuccessMessage({ onBackToHome,onViewDashboard, streak = 1 }) {
         {/* Motivational Quote */}
         <div className="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
           <p className="text-sm text-gray-700 italic">
-            "The journey of a thousand miles begins with a single step." - Keep
-            coding! 🚀
+            "The journey of a thousand miles begins with a single step." - Keep coding! 🚀
           </p>
         </div>
       </div>

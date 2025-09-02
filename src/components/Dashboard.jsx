@@ -1,4 +1,4 @@
-// Updated Dashboard with cleaned UI and fixed date issues
+// Updated Dashboard with Resume Analyzer link
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -7,6 +7,7 @@ import { getUserJournalEntries, deleteJournalEntry } from '../services/journalSe
 import EntryCard from './EntryCard';
 import EditModal from './EditModal';
 import LoadingSpinner from './LoadingSpinner';
+import { StreakService } from '../services/streakService';
 
 function Dashboard({ onBackToHome, onStartJournal }) {
   const [entries, setEntries] = useState([]);
@@ -16,9 +17,31 @@ function Dashboard({ onBackToHome, onStartJournal }) {
   const [editingEntry, setEditingEntry] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
-  const [streak, setStreak] = useState(0);
-  
+  const [streakData, setStreakData] = useState({ 
+    currentStreak: 0, 
+    longestStreak: 0,
+    totalEntries: 0,
+    lastEntryDate: null
+  });
+
   const { currentUser } = useAuth();
+
+  // Load streak data when component mounts
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadStreakData = async () => {
+      try {
+        const streakService = new StreakService(currentUser.uid);
+        const data = await streakService.validateCurrentStreak();
+        setStreakData(data);
+      } catch (error) {
+        console.error('Error loading streak data:', error);
+      }
+    };
+
+    loadStreakData();
+  }, [currentUser]);
 
   // Real-time listener for entries
   useEffect(() => {
@@ -43,11 +66,22 @@ function Dashboard({ onBackToHome, onStartJournal }) {
         });
 
         setEntries(entriesData);
-        setStreak(calculateStreak(entriesData));
         setLoading(false);
+
+        // Reload streak data when entries change
+        const loadStreakData = async () => {
+          try {
+            const streakService = new StreakService(currentUser.uid);
+            const data = await streakService.validateCurrentStreak();
+            setStreakData(data);
+          } catch (error) {
+            console.error('Error reloading streak data:', error);
+          }
+        };
+        loadStreakData();
       },
       (error) => {
-        // Fallback to manual fetch
+        console.error('Firestore listener error:', error);
         loadEntries();
       }
     );
@@ -64,54 +98,17 @@ function Dashboard({ onBackToHome, onStartJournal }) {
       setError(null);
       const userEntries = await getUserJournalEntries(currentUser.uid);
       setEntries(userEntries);
-      setStreak(calculateStreak(userEntries));
+
+      // Load streak data
+      const streakService = new StreakService(currentUser.uid);
+      const data = await streakService.validateCurrentStreak();
+      setStreakData(data);
     } catch (error) {
+      console.error('Error loading entries:', error);
       setError('Failed to load journal entries. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Fixed streak calculation
-  const calculateStreak = (entries) => {
-    if (!entries || entries.length === 0) return 0;
-
-    // Get unique dates with entries
-    const datesWithEntries = new Set();
-    entries.forEach(entry => {
-      // Handle different date formats
-      let dateStr;
-      if (entry.date) {
-        dateStr = entry.date;
-      } else if (entry.timestamp?.toDate) {
-        dateStr = entry.timestamp.toDate().toISOString().slice(0, 10);
-      } else if (entry.timestamp) {
-        dateStr = new Date(entry.timestamp).toISOString().slice(0, 10);
-      } else if (entry.createdAt?.toDate) {
-        dateStr = entry.createdAt.toDate().toISOString().slice(0, 10);
-      }
-      
-      if (dateStr) {
-        datesWithEntries.add(dateStr);
-      }
-    });
-
-    let streakCount = 0;
-    let currentDate = new Date();
-    
-    // Check consecutive days starting from today
-    while (true) {
-      const dateStr = currentDate.toISOString().slice(0, 10);
-      
-      if (datesWithEntries.has(dateStr)) {
-        streakCount++;
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-
-    return streakCount;
   };
 
   // Delete entry function with Firestore
@@ -124,7 +121,13 @@ function Dashboard({ onBackToHome, onStartJournal }) {
       try {
         await deleteJournalEntry(currentUser.uid, entryId);
         setEntries(prev => prev.filter(entry => entry.id !== entryId));
+        
+        // Reload streak data after deletion
+        const streakService = new StreakService(currentUser.uid);
+        const updatedStreakData = await streakService.validateCurrentStreak();
+        setStreakData(updatedStreakData);
       } catch (error) {
+        console.error('Error deleting entry:', error);
         alert('Failed to delete entry. Please try again.');
       }
     }
@@ -145,15 +148,28 @@ function Dashboard({ onBackToHome, onStartJournal }) {
     setEditingEntry(null);
   };
 
+  // Navigate to resume analyzer
+  const handleResumeAnalyzer = () => {
+    window.location.href = '/resume';
+  };
+
+  // Navigate to profile
+  const handleProfile = () => {
+    window.location.href = '/profile';
+  };
+
   // Filter and sort entries
   const filteredAndSortedEntries = entries
-    .filter(entry => 
-      entry.progress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.technologies?.some(tech => 
-        tech.toLowerCase().includes(searchTerm.toLowerCase())
-      ) ||
-      new Date(entry.date).toLocaleDateString().includes(searchTerm)
-    )
+    .filter(entry => {
+      const lowerSearch = searchTerm.toLowerCase();
+      return (
+        entry.progress?.toLowerCase().includes(lowerSearch) ||
+        entry.technologies?.some(tech => 
+          tech.toLowerCase().includes(lowerSearch)
+        ) ||
+        new Date(entry.date).toLocaleDateString().includes(searchTerm)
+      );
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case 'date-desc':
@@ -207,6 +223,19 @@ function Dashboard({ onBackToHome, onStartJournal }) {
                 🏠 Home
               </button>
               <button
+                onClick={handleProfile}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-300"
+              >
+                👤 Profile
+              </button>
+              {/* NEW: Resume Analyzer Button */}
+              <button
+                onClick={handleResumeAnalyzer}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 shadow-md"
+              >
+                📄 Resume Analyzer
+              </button>
+              <button
                 onClick={onStartJournal}
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300"
               >
@@ -218,15 +247,61 @@ function Dashboard({ onBackToHome, onStartJournal }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Streak Display */}
+        {/* Enhanced Streak Display */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">🔥 Current Streak</h2>
               <p className="text-gray-600">Consecutive days of journaling</p>
+              <div className="mt-2 space-y-1">
+                <p className="text-sm text-gray-500">
+                  Longest streak: <span className="font-semibold">{streakData.longestStreak || 0} days</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  Total entries: <span className="font-semibold">{streakData.totalEntries || entries.length}</span>
+                </p>
+                {streakData.lastEntryDate && (
+                  <p className="text-sm text-gray-500">
+                    Last entry: <span className="font-semibold">
+                      {new Date(streakData.lastEntryDate).toLocaleDateString()}
+                    </span>
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="text-4xl font-bold text-blue-600">
-              {streak} {streak === 1 ? 'day' : 'days'}
+            <div className="text-center">
+              <div className="text-4xl font-bold text-blue-600 mb-2">
+                {streakData.currentStreak || 0}
+              </div>
+              <div className="text-sm text-gray-500">
+                {(streakData.currentStreak || 0) === 1 ? 'day' : 'days'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Phase 4 Feature Callout */}
+        <div className="bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-200 rounded-xl p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-purple-900 mb-2">🚀 New Feature: Resume Analyzer</h3>
+              <p className="text-purple-700 mb-3">
+                Upload your resume to get AI-powered skill analysis, gap identification, and career insights.
+              </p>
+              <ul className="text-sm text-purple-600 space-y-1">
+                <li>• 📄 PDF parsing and text extraction</li>
+                <li>• 🔍 Skill identification across 100+ technologies</li>
+                <li>• 📊 Career progression analysis</li>
+                <li>• 💡 Personalized improvement recommendations</li>
+              </ul>
+            </div>
+            <div className="ml-6">
+              <button
+                onClick={handleResumeAnalyzer}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-lg transform hover:scale-105"
+              >
+                Try Resume Analyzer →
+              </button>
             </div>
           </div>
         </div>

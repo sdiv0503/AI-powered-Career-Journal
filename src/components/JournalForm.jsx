@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import SuccessMessage from "./SuccessMessage";
+import { updateUserStreak } from '../services/streakService';
 
 function JournalForm({ onBackToHome, onViewDashboard }) {
   const { currentUser } = useAuth();
@@ -213,60 +214,69 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
 
-    if (!currentUser) {
-      alert('You must be logged in to create a journal entry.');
-      return;
-    }
+// In your handleSubmit function, add this after saving the entry:
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
-      setIsSubmitting(true);
+  if (!currentUser) {
+    alert('You must be logged in to create a journal entry.');
+    return;
+  }
 
-      const entryData = {
-        date: new Date().toISOString().slice(0, 10),
-        timestamp: new Date(),
-        progress: formData.progress,
-        mood: formData.mood,
-        technologies: formData.technologies,
-        activities: formData.activities,
-        energy: formData.energy,
-        productivity: formData.productivity,
-        focus: formData.focus,
-        learnings: formData.learnings,
-        challenges: formData.challenges,
-        timeSpent: formData.timeSpent,
-        codeSnippet: formData.codeSnippet,
-        quickWins: formData.quickWins,
-        tomorrowGoals: formData.tomorrowGoals,
-        reflectionAnswers: formData.reflectionAnswers,
-        userId: currentUser.uid,
-        createdAt: new Date(),
-      };
+  try {
+    setIsSubmitting(true);
 
-      console.log("Saving entry with data:", entryData);
+    const entryDate = new Date().toISOString().slice(0, 10);
+    
+    const entryData = {
+      date: entryDate,
+      timestamp: new Date(),
+      progress: formData.progress,
+      mood: formData.mood,
+      technologies: formData.technologies,
+      activities: formData.activities,
+      energy: formData.energy,
+      productivity: formData.productivity,
+      focus: formData.focus,
+      learnings: formData.learnings,
+      challenges: formData.challenges,
+      timeSpent: formData.timeSpent,
+      codeSnippet: formData.codeSnippet,
+      quickWins: formData.quickWins,
+      tomorrowGoals: formData.tomorrowGoals,
+      reflectionAnswers: formData.reflectionAnswers,
+      userId: currentUser.uid,
+      createdAt: new Date(),
+    };
 
-      const docRef = await addDoc(
-        collection(db, "users", currentUser.uid, "journalEntries"),
-        entryData
-      );
+    console.log("Saving entry with data:", entryData);
 
-      console.log("Entry saved with ID:", docRef.id);
+    const docRef = await addDoc(
+      collection(db, "users", currentUser.uid, "journalEntries"),
+      entryData
+    );
 
-      // Clear draft and reset form
-      localStorage.removeItem("journalDraft");
-      setFormData(initialFormData);
-      setCurrentStep(1);
-      setShowSuccess(true);
-      
-    } catch (error) {
-      console.error("Error saving entry:", error);
-      alert('Failed to save entry. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    console.log("Entry saved with ID:", docRef.id);
+
+    // Update streak after successful entry save
+    const updatedStreakData = await updateUserStreak(currentUser.uid, entryDate);
+    console.log("Streak updated:", updatedStreakData);
+
+    // Clear draft and reset form
+    localStorage.removeItem("journalDraft");
+    setFormData(initialFormData);
+    setCurrentStep(1);
+    setShowSuccess(true);
+    
+  } catch (error) {
+    console.error("Error saving entry:", error);
+    alert('Failed to save entry. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   if (showSuccess) {
     return (
