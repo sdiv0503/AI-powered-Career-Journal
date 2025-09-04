@@ -33,3 +33,4 @@ dist-ssr
 .ai-cache/
 ai-responses.json
 
+.env
