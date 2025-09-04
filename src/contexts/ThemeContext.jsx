@@ -1,101 +1,51 @@
-// Global theme management with dark mode support
-// Why Context? Theme affects every component - avoid prop drilling
-
-import { createContext, useContext, useState, useEffect } from 'react';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { useAuth } from './AuthContext';
+// contexts/ThemeContext.js
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext();
 
-// Custom hook for using theme context
-export function useTheme() {
+export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
-}
+};
 
-export function ThemeProvider({ children }) {
+export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser } = useAuth();
 
-  // Load theme preference on mount
+  // Initialize theme from localStorage
   useEffect(() => {
-    loadThemePreference();
-  }, [currentUser]);
+    const stored = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = stored ? JSON.parse(stored) : prefersDark;
+    
+    setIsDarkMode(shouldBeDark);
+    setIsLoading(false);
+  }, []);
 
-  // Apply theme to document root
+  // Apply dark class to root element
   useEffect(() => {
+    const root = document.documentElement;
+    
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
+    
+    // Store preference
+    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
-  const loadThemePreference = async () => {
-    try {
-      if (currentUser) {
-        // Load from Firestore user profile
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setIsDarkMode(userData.settings?.darkMode || false);
-        }
-      } else {
-        // Load from localStorage for non-authenticated users
-        const saved = localStorage.getItem('darkMode');
-        if (saved !== null) {
-          setIsDarkMode(JSON.parse(saved));
-        } else {
-          // Respect system preference as fallback
-          const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          setIsDarkMode(systemPrefersDark);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading theme preference:', error);
-      // Fallback to system preference
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(systemPrefersDark);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleTheme = async () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-
-    try {
-      if (currentUser) {
-        // Save to Firestore
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          'settings.darkMode': newTheme,
-          'settings.lastUpdated': new Date().toISOString()
-        });
-      } else {
-        // Save to localStorage
-        localStorage.setItem('darkMode', JSON.stringify(newTheme));
-      }
-    } catch (error) {
-      console.error('Error saving theme preference:', error);
-      // Still update UI even if save fails
-    }
-  };
-
-  const value = {
-    isDarkMode,
-    toggleTheme,
-    isLoading
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
   };
 
   return (
-    <ThemeContext.Provider value={value}>
+    <ThemeContext.Provider value={{ isDarkMode, toggleTheme, isLoading }}>
       {children}
     </ThemeContext.Provider>
   );
-}
+};

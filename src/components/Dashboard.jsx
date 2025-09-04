@@ -1,4 +1,4 @@
-// Updated Dashboard with Resume Analyzer link
+// Updated Dashboard.jsx with Professional Dark Mode Support
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
@@ -8,6 +8,7 @@ import EntryCard from './EntryCard';
 import EditModal from './EditModal';
 import LoadingSpinner from './LoadingSpinner';
 import { StreakService } from '../services/streakService';
+import { useNavigate } from 'react-router-dom';
 
 function Dashboard({ onBackToHome, onStartJournal }) {
   const [entries, setEntries] = useState([]);
@@ -25,6 +26,7 @@ function Dashboard({ onBackToHome, onStartJournal }) {
   });
 
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   // Load streak data when component mounts
   useEffect(() => {
@@ -150,12 +152,7 @@ function Dashboard({ onBackToHome, onStartJournal }) {
 
   // Navigate to resume analyzer
   const handleResumeAnalyzer = () => {
-    window.location.href = '/resume';
-  };
-
-  // Navigate to profile
-  const handleProfile = () => {
-    window.location.href = '/profile';
+    navigate('/resume');
   };
 
   // Filter and sort entries
@@ -189,12 +186,12 @@ function Dashboard({ onBackToHome, onStartJournal }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
           <button 
             onClick={loadEntries}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition-colors duration-200"
           >
             Try Again
           </button>
@@ -204,40 +201,35 @@ function Dashboard({ onBackToHome, onStartJournal }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900/50 transition-colors duration-300">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-100 dark:border-gray-700 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">📊 Dashboard</h1>
-              <p className="text-gray-600 mt-1">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 transition-colors duration-300">📊 Dashboard</h1>
+              <p className="text-gray-600 dark:text-gray-300 mt-1 transition-colors duration-300">
                 {entries.length} journal {entries.length === 1 ? 'entry' : 'entries'}
               </p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={onBackToHome}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-300"
+                className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-all duration-300"
               >
                 🏠 Home
               </button>
-              <button
-                onClick={handleProfile}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-300"
-              >
-                👤 Profile
-              </button>
-              {/* NEW: Resume Analyzer Button */}
+              
               <button
                 onClick={handleResumeAnalyzer}
-                className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 shadow-md"
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 📄 Resume Analyzer
               </button>
+              
               <button
                 onClick={onStartJournal}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 ✏️ New Entry
               </button>
@@ -248,21 +240,21 @@ function Dashboard({ onBackToHome, onStartJournal }) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Enhanced Streak Display */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8 transition-all duration-300 hover:shadow-md dark:hover:shadow-gray-900/25">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">🔥 Current Streak</h2>
-              <p className="text-gray-600">Consecutive days of journaling</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 transition-colors duration-300">🔥 Current Streak</h2>
+              <p className="text-gray-600 dark:text-gray-300 transition-colors duration-300">Consecutive days of journaling</p>
               <div className="mt-2 space-y-1">
-                <p className="text-sm text-gray-500">
-                  Longest streak: <span className="font-semibold">{streakData.longestStreak || 0} days</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-300">
+                  Longest streak: <span className="font-semibold text-gray-700 dark:text-gray-300">{streakData.longestStreak || 0} days</span>
                 </p>
-                <p className="text-sm text-gray-500">
-                  Total entries: <span className="font-semibold">{streakData.totalEntries || entries.length}</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-300">
+                  Total entries: <span className="font-semibold text-gray-700 dark:text-gray-300">{streakData.totalEntries || entries.length}</span>
                 </p>
                 {streakData.lastEntryDate && (
-                  <p className="text-sm text-gray-500">
-                    Last entry: <span className="font-semibold">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-300">
+                    Last entry: <span className="font-semibold text-gray-700 dark:text-gray-300">
                       {new Date(streakData.lastEntryDate).toLocaleDateString()}
                     </span>
                   </p>
@@ -270,25 +262,25 @@ function Dashboard({ onBackToHome, onStartJournal }) {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-blue-600 mb-2">
+              <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2 transition-colors duration-300">
                 {streakData.currentStreak || 0}
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-300">
                 {(streakData.currentStreak || 0) === 1 ? 'day' : 'days'}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Phase 4 Feature Callout */}
-        <div className="bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-200 rounded-xl p-6 mb-8">
+        {/* Feature Callout */}
+        <div className="bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700/50 rounded-xl p-6 mb-8 transition-all duration-300 hover:shadow-md dark:hover:shadow-purple-900/25">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-bold text-purple-900 mb-2">🚀 New Feature: Resume Analyzer</h3>
-              <p className="text-purple-700 mb-3">
+              <h3 className="text-xl font-bold text-purple-900 dark:text-purple-300 mb-2 transition-colors duration-300">🚀 New Feature: Resume Analyzer</h3>
+              <p className="text-purple-700 dark:text-purple-400 mb-3 transition-colors duration-300">
                 Upload your resume to get AI-powered skill analysis, gap identification, and career insights.
               </p>
-              <ul className="text-sm text-purple-600 space-y-1">
+              <ul className="text-sm text-purple-600 dark:text-purple-400 space-y-1 transition-colors duration-300">
                 <li>• 📄 PDF parsing and text extraction</li>
                 <li>• 🔍 Skill identification across 100+ technologies</li>
                 <li>• 📊 Career progression analysis</li>
@@ -298,7 +290,7 @@ function Dashboard({ onBackToHome, onStartJournal }) {
             <div className="ml-6">
               <button
                 onClick={handleResumeAnalyzer}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-lg transform hover:scale-105"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 Try Resume Analyzer →
               </button>
@@ -307,11 +299,11 @@ function Dashboard({ onBackToHome, onStartJournal }) {
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8 transition-all duration-300 hover:shadow-md dark:hover:shadow-gray-900/25">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 🔍 Search Entries
               </label>
               <input
@@ -319,19 +311,19 @@ function Dashboard({ onBackToHome, onStartJournal }) {
                 placeholder="Search by progress, technologies, or date..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-300"
               />
             </div>
 
             {/* Sort */}
             <div className="md:w-64">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 📅 Sort By
               </label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-all duration-300"
               >
                 <option value="date-desc">Latest First</option>
                 <option value="date-asc">Oldest First</option>
@@ -345,10 +337,10 @@ function Dashboard({ onBackToHome, onStartJournal }) {
         {filteredAndSortedEntries.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📝</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 transition-colors duration-300">
               {searchTerm ? 'No entries found' : 'No journal entries yet'}
             </h3>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto transition-colors duration-300">
               {searchTerm 
                 ? 'Try adjusting your search terms or filters.'
                 : 'Start your coding journey by creating your first journal entry!'
@@ -357,7 +349,7 @@ function Dashboard({ onBackToHome, onStartJournal }) {
             {!searchTerm && (
               <button
                 onClick={onStartJournal}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 ✏️ Create First Entry 🚀
               </button>

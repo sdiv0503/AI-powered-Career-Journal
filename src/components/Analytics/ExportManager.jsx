@@ -1,975 +1,325 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas-pro";
+import React, { useState } from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
-const ExportManager = ({ analyzedResumes, selectedResume }) => {
+const ExportManager = ({ analyzedResumes = [], selectedResume, aiInsights }) => {
   const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
 
-  // Comprehensive PDF export with ALL analytics content
-  const exportComprehensiveReport = async () => {
+  // 🔧 REAL PDF GENERATION FUNCTION
+  const generatePDFReport = async () => {
     if (!selectedResume) {
-      alert("Please select a resume to export.");
+      toast.error('Please select a resume to export');
       return;
     }
 
-    console.log("🚀 COMPREHENSIVE PDF EXPORT STARTED!");
     setIsExporting(true);
-    setExportProgress(5);
-
+    
     try {
-      const pdf = new jsPDF("portrait", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
+      toast.loading('📄 Generating PDF report...', { id: 'pdf-export' });
 
-      // 1. CREATE TITLE PAGE
-      setExportProgress(10);
-      await createTitlePage(pdf, selectedResume, margin, pageWidth, pageHeight);
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
 
-      // 2. ADD EXECUTIVE SUMMARY PAGE
-      setExportProgress(20);
-      pdf.addPage();
-      await createExecutiveSummary(
-        pdf,
-        selectedResume,
-        margin,
-        contentWidth,
-        pageWidth,
-        pageHeight
-      );
+      // Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(24);
+      doc.setTextColor(59, 130, 246);
+      doc.text('📊 Resume Analysis Report', 20, 25);
+      
+      let yPosition = 45;
+      
+      // File Information
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text('📋 File Information', 20, yPosition);
+      yPosition += 10;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text(`File Name: ${selectedResume.fileName || 'Unknown'}`, 25, yPosition);
+      yPosition += 6;
+      doc.text(`Analysis Date: ${new Date(selectedResume.analyzedAt).toLocaleDateString()}`, 25, yPosition);
+      yPosition += 6;
+      doc.text(`Pages: ${selectedResume.analysis.pageCount || 1}`, 25, yPosition);
+      yPosition += 15;
 
-      // 3. CAPTURE AND ADD VISUAL CHARTS
-      setExportProgress(30);
-      await addVisualCharts(pdf, margin, contentWidth);
+      // Skills Analysis
+      const { skillAnalysis, qualityMetrics } = selectedResume.analysis;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('💼 Skills Analysis', 20, yPosition);
+      yPosition += 10;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text(`Total Skills: ${skillAnalysis?.totalSkills || 0}`, 25, yPosition);
+      yPosition += 6;
+      doc.text(`High Confidence: ${skillAnalysis?.highConfidenceSkills || 0}`, 25, yPosition);
+      yPosition += 6;
+      doc.text(`Expert Level: ${skillAnalysis?.expertSkills || 0}`, 25, yPosition);
+      yPosition += 15;
 
-      // 4. ADD DETAILED SKILL ANALYSIS
-      setExportProgress(50);
-      pdf.addPage();
-      await createDetailedSkillAnalysis(
-        pdf,
-        selectedResume,
-        margin,
-        contentWidth,
-        pageWidth,
-        pageHeight
-      );
-
-      // 5. ADD QUALITY METRICS BREAKDOWN
-      setExportProgress(65);
-      pdf.addPage();
-      await createQualityMetricsBreakdown(
-        pdf,
-        selectedResume,
-        margin,
-        contentWidth,
-        pageWidth,
-        pageHeight
-      );
-
-      // 6. ADD RECOMMENDATIONS SECTION
-      setExportProgress(80);
-      pdf.addPage();
-      await createRecommendationsSection(
-        pdf,
-        selectedResume,
-        margin,
-        contentWidth,
-        pageWidth,
-        pageHeight
-      );
-
-      // 7. ADD COMPARISON DATA (if multiple resumes)
-      if (analyzedResumes.length > 1) {
-        setExportProgress(90);
-        pdf.addPage();
-        await createComparisonSection(
-          pdf,
-          analyzedResumes,
-          selectedResume,
-          margin,
-          contentWidth,
-          pageWidth,
-          pageHeight
-        );
+      // Top Skills
+      if (skillAnalysis?.topSkills?.length > 0) {
+        doc.text('🎯 Top Skills:', 25, yPosition);
+        yPosition += 8;
+        
+        skillAnalysis.topSkills.slice(0, 10).forEach((skill, index) => {
+          const skillName = skill.name || skill;
+          doc.text(`${index + 1}. ${skillName}`, 30, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 10;
       }
 
-      // 8. SAVE THE COMPREHENSIVE PDF
-      setExportProgress(95);
-      const filename = `${selectedResume.fileName.replace(
-        /\.[^/.]+$/,
-        ""
-      )}_Complete_Analytics_Report.pdf`;
-      pdf.save(filename);
+      // Quality Metrics
+      if (qualityMetrics) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('📈 Quality Metrics', 20, yPosition);
+        yPosition += 10;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.text(`Overall Score: ${qualityMetrics.overallScore || Math.round(selectedResume.analysis.confidence * 100)}%`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Section Completeness: ${qualityMetrics.sectionCompleteness}%`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Skill Diversity: ${qualityMetrics.skillDiversity}%`, 25, yPosition);
+        yPosition += 15;
+      }
 
-      setExportProgress(100);
-      console.log("✅ Comprehensive PDF saved successfully!");
+      // AI Insights (if available)
+      if (aiInsights) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 25;
+        }
 
-      setTimeout(() => {
-        alert(
-          "✅ Complete analytics report exported successfully! Check your downloads folder."
-        );
-      }, 500);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('🤖 AI Analysis', 20, yPosition);
+        yPosition += 10;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.text(`AI Score: ${aiInsights.overallAssessment?.score || '—'}/100`, 25, yPosition);
+        yPosition += 10;
+
+        if (aiInsights.overallAssessment?.strengths?.length > 0) {
+          doc.text('✅ Strengths:', 25, yPosition);
+          yPosition += 6;
+          aiInsights.overallAssessment.strengths.forEach((strength) => {
+            doc.text(`• ${strength}`, 30, yPosition);
+            yPosition += 5;
+          });
+        }
+      }
+
+      // Footer
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Generated by AI Resume Analyzer', 20, 290);
+
+      // Save PDF
+      const fileName = `Resume_Analysis_${selectedResume.fileName?.replace(/\.[^/.]+$/, '') || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+
+      toast.success('✅ PDF generated successfully!', { id: 'pdf-export' });
+
     } catch (error) {
-      console.error("❌ Comprehensive PDF Export Error:", error);
-      alert(`❌ Failed to export comprehensive PDF: ${error.message}`);
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF', { id: 'pdf-export' });
     } finally {
       setIsExporting(false);
-      setExportProgress(0);
     }
   };
 
-  // CREATE TITLE PAGE
-  const createTitlePage = async (
-    pdf,
-    resume,
-    margin,
-    pageWidth,
-    pageHeight
-  ) => {
-    // Header
-    pdf.setFontSize(28);
-    pdf.setTextColor(59, 130, 246); // Blue
-    pdf.text("RESUME ANALYTICS REPORT", margin, 40);
+  // 🔧 REAL CHARTS EXPORT FUNCTION
+  const exportCharts = async () => {
+    setIsExporting(true);
+    
+    try {
+      toast.loading('🖼️ Exporting charts...', { id: 'chart-export' });
 
-    // Subtitle
-    pdf.setFontSize(16);
-    pdf.setTextColor(75, 85, 99); // Gray
-    pdf.text("Comprehensive Skill & Quality Analysis", margin, 55);
+      const chartElements = document.querySelectorAll('[data-export-chart]');
+      
+      if (chartElements.length === 0) {
+        toast.error('No charts found to export');
+        return;
+      }
 
-    // Resume Details Box
-    pdf.setFillColor(248, 250, 252); // Light gray background
-    pdf.roundedRect(margin, 70, pageWidth - margin * 2, 40, 3, 3, "F");
+      let exportCount = 0;
+      
+      for (let i = 0; i < chartElements.length; i++) {
+        const chartElement = chartElements[i];
+        const chartId = chartElement.getAttribute('data-export-chart');
+        
+        try {
+          const canvas = await html2canvas(chartElement, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            useCORS: true
+          });
+          
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = `${chartId}_${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          exportCount++;
+        } catch (chartError) {
+          console.error(`Error exporting chart ${chartId}:`, chartError);
+        }
+      }
 
-    pdf.setFontSize(14);
-    pdf.setTextColor(17, 24, 39); // Dark
-    pdf.text("Resume File:", margin + 10, 85);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(resume.fileName, margin + 10, 95);
+      if (exportCount > 0) {
+        toast.success(`✅ Exported ${exportCount} chart(s)!`, { id: 'chart-export' });
+      } else {
+        toast.error('Failed to export charts', { id: 'chart-export' });
+      }
 
-    pdf.setFont("helvetica", "normal");
-    pdf.text("Analysis Date:", margin + 10, 105);
-    pdf.text(
-      new Date(resume.analyzedAt).toLocaleDateString(),
-      margin + 80,
-      105
-    );
-
-    // Key Metrics Overview
-    const analysis = resume.analysis;
-    const qualityScore =
-      analysis.qualityMetrics?.overallScore ||
-      Math.round(analysis.confidence * 100);
-
-    pdf.setFontSize(18);
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("KEY METRICS AT A GLANCE", margin, 140);
-
-    // Metrics boxes
-    const metrics = [
-      {
-        label: "Overall Quality Score",
-        value: `${qualityScore}%`,
-        color:
-          qualityScore >= 80
-            ? [34, 197, 94]
-            : qualityScore >= 60
-            ? [251, 191, 36]
-            : [239, 68, 68],
-      },
-      {
-        label: "Total Skills Detected",
-        value: analysis.skillAnalysis.totalSkills,
-        color: [59, 130, 246],
-      },
-      {
-        label: "High Confidence Skills",
-        value:
-          analysis.skillAnalysis.highConfidenceSkills ||
-          analysis.skillAnalysis.totalSkills,
-        color: [168, 85, 247],
-      },
-      {
-        label: "Expert Level Skills",
-        value: analysis.skillAnalysis.expertSkills || 0,
-        color: [245, 158, 11],
-      },
-    ];
-
-    let yPos = 155;
-    const contentWidth = pageWidth - margin * 2;
-    metrics.forEach((metric, index) => {
-      const xPos = margin + (index % 2) * (contentWidth / 2);
-      if (index === 2) yPos += 25;
-
-      pdf.setFillColor(...metric.color);
-      pdf.roundedRect(xPos, yPos, contentWidth / 2 - 10, 20, 2, 2, "F");
-
-      pdf.setFontSize(12);
-      pdf.setTextColor(255, 255, 255);
-      pdf.text(metric.label, xPos + 5, yPos + 8);
-      pdf.setFontSize(16);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(String(metric.value), xPos + 5, yPos + 16);
-      pdf.setFont("helvetica", "normal");
-    });
-
-    // Generated timestamp
-    pdf.setFontSize(10);
-    pdf.setTextColor(107, 114, 128);
-    pdf.text(
-      `Report generated on ${new Date().toLocaleString()}`,
-      margin,
-      pageHeight - 20
-    );
-    pdf.text(
-      "Generated by Career Journal Analytics Platform",
-      margin,
-      pageHeight - 10
-    );
-  };
-
-  // CREATE EXECUTIVE SUMMARY
-  const createExecutiveSummary = async (
-    pdf,
-    resume,
-    margin,
-    contentWidth,
-    pageWidth,
-    pageHeight
-  ) => {
-    const analysis = resume.analysis;
-
-    pdf.setFontSize(20);
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("EXECUTIVE SUMMARY", margin, 30);
-
-    let yPos = 50;
-    pdf.setFontSize(12);
-    pdf.setTextColor(55, 65, 81);
-
-    // Overall Assessment
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Overall Assessment:", margin, yPos);
-    pdf.setFont("helvetica", "normal");
-    yPos += 7;
-
-    const qualityScore =
-      analysis.qualityMetrics?.overallScore ||
-      Math.round(analysis.confidence * 100);
-    const assessmentText =
-      qualityScore >= 80
-        ? "Excellent resume with strong skill presentation and comprehensive content."
-        : qualityScore >= 60
-        ? "Good resume with room for improvement in skill diversity and content depth."
-        : "Resume requires significant improvements in multiple areas to be competitive.";
-
-    const wrappedAssessment = pdf.splitTextToSize(assessmentText, contentWidth);
-    pdf.text(wrappedAssessment, margin, yPos);
-    yPos += wrappedAssessment.length * 7 + 10;
-
-    // Key Strengths
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Key Strengths:", margin, yPos);
-    pdf.setFont("helvetica", "normal");
-    yPos += 7;
-
-    const strengths = [
-      `${analysis.skillAnalysis.totalSkills} skills identified across multiple categories`,
-      `${
-        analysis.skillAnalysis.highConfidenceSkills ||
-        analysis.skillAnalysis.totalSkills
-      } high-confidence skill matches`,
-      analysis.qualityMetrics?.sectionCompleteness >= 80
-        ? "Complete resume structure with all essential sections"
-        : null,
-      analysis.skillAnalysis.expertSkills > 0
-        ? `${analysis.skillAnalysis.expertSkills} expert-level skills demonstrated`
-        : null,
-    ].filter(Boolean);
-
-    strengths.forEach((strength) => {
-      pdf.text(`• ${strength}`, margin + 5, yPos);
-      yPos += 7;
-    });
-    yPos += 10;
-
-    // Areas for Improvement
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Areas for Improvement:", margin, yPos);
-    pdf.setFont("helvetica", "normal");
-    yPos += 7;
-
-    const improvements = [
-      analysis.qualityMetrics?.sectionCompleteness < 80
-        ? "Add missing resume sections for completeness"
-        : null,
-      analysis.qualityMetrics?.skillDiversity < 70
-        ? "Expand skill diversity across different categories"
-        : null,
-      analysis.qualityMetrics?.contentDepth < 70
-        ? "Enhance content depth with more detailed descriptions"
-        : null,
-      qualityScore < 70
-        ? "Overall resume quality needs enhancement for better ATS compatibility"
-        : null,
-    ].filter(Boolean);
-
-    if (improvements.length === 0) {
-      pdf.text(
-        "• Resume shows excellent quality across all measured dimensions",
-        margin + 5,
-        yPos
-      );
-    } else {
-      improvements.forEach((improvement) => {
-        pdf.text(`• ${improvement}`, margin + 5, yPos);
-        yPos += 7;
-      });
-    }
-
-    // Top Skills Summary
-    yPos += 15;
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Top Skills Identified:", margin, yPos);
-    pdf.setFont("helvetica", "normal");
-    yPos += 7;
-
-    if (analysis.skillAnalysis.topSkills) {
-      const topSkillsText = analysis.skillAnalysis.topSkills
-        .slice(0, 8)
-        .map((skill) => skill.name)
-        .join(", ");
-      const wrappedSkills = pdf.splitTextToSize(topSkillsText, contentWidth);
-      pdf.text(wrappedSkills, margin, yPos);
+    } catch (error) {
+      toast.error('Chart export failed', { id: 'chart-export' });
+    } finally {
+      setIsExporting(false);
     }
   };
 
-  // ADD VISUAL CHARTS
-  const addVisualCharts = async (pdf, margin, contentWidth) => {
-    const chartElements = document.querySelectorAll("[data-export-chart]");
-
-    if (chartElements.length === 0) {
-      console.log("No charts found for export");
+  // 🔧 REAL SHARE FUNCTION
+  const shareReport = () => {
+    if (!selectedResume) {
+      toast.error('Please select a resume to share');
       return;
     }
 
-    let chartsAdded = 0;
-    let currentPage = false;
-
-    for (const chart of chartElements) {
-      try {
-        // Add new page for charts (except first)
-        if (chartsAdded > 0 && chartsAdded % 2 === 0) {
-          pdf.addPage();
-          currentPage = false;
-        }
-
-        if (!currentPage) {
-          pdf.setFontSize(20);
-          pdf.setTextColor(59, 130, 246);
-          pdf.text("VISUAL ANALYTICS CHARTS", margin, 30);
-          currentPage = true;
-        }
-
-        const canvas = await html2canvas(chart, {
-          scale: 1.5,
-          backgroundColor: "white",
-          useCORS: true,
-          logging: false,
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-        const imgWidth = contentWidth;
-        const imgHeight = Math.min(
-          (canvas.height * imgWidth) / canvas.width,
-          120
-        );
-
-        const yPos = 50 + (chartsAdded % 2) * 130;
-        pdf.addImage(imgData, "PNG", margin, yPos, imgWidth, imgHeight);
-
-        // Add chart title
-        const chartTitle =
-          chart.getAttribute("data-export-chart") || `Chart ${chartsAdded + 1}`;
-        pdf.setFontSize(10);
-        pdf.setTextColor(107, 114, 128);
-        pdf.text(chartTitle.replace(/-/g, " ").toUpperCase(), margin, yPos - 5);
-
-        chartsAdded++;
-      } catch (error) {
-        console.warn("Failed to capture chart:", error);
-      }
-    }
-
-    // If no charts were added, add a placeholder page
-    if (chartsAdded === 0) {
-      pdf.setFontSize(20);
-      pdf.setTextColor(59, 130, 246);
-      pdf.text("VISUAL ANALYTICS CHARTS", margin, 30);
-
-      pdf.setFontSize(12);
-      pdf.setTextColor(107, 114, 128);
-      pdf.text(
-        "Charts are being processed and will be available in the next version.",
-        margin,
-        60
-      );
-    }
-  };
-
-  // CREATE DETAILED SKILL ANALYSIS
-  const createDetailedSkillAnalysis = async (
-    pdf,
-    resume,
-    margin,
-    contentWidth,
-    pageWidth,
-    pageHeight
-  ) => {
-    const analysis = resume.analysis.skillAnalysis;
-
-    pdf.setFontSize(20);
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("DETAILED SKILL ANALYSIS", margin, 30);
-
-    let yPos = 50;
-    pdf.setFontSize(12);
-    pdf.setTextColor(55, 65, 81);
-
-    // Skills by Category
-    if (analysis.skillsByCategory) {
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Skills by Category:", margin, yPos);
-      pdf.setFont("helvetica", "normal");
-      yPos += 10;
-
-      Object.entries(analysis.skillsByCategory).forEach(([category, data]) => {
-        if (yPos > 250) {
-          pdf.addPage();
-          yPos = 30;
-        }
-
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(59, 130, 246);
-        pdf.text(`${category}:`, margin + 5, yPos);
-        pdf.setFont("helvetica", "normal");
-        pdf.setTextColor(55, 65, 81);
-        yPos += 7;
-
-        if (data.skills && Object.keys(data.skills).length > 0) {
-          const skills = Object.entries(data.skills).slice(0, 10);
-          skills.forEach(([skill, confidence]) => {
-            const confidenceText =
-              typeof confidence === "number"
-                ? ` (${Math.round(confidence * 100)}% confidence)`
-                : "";
-            pdf.text(`   • ${skill}${confidenceText}`, margin + 10, yPos);
-            yPos += 6;
-          });
-        } else {
-          pdf.text(
-            "   • No specific skills detected in this category",
-            margin + 10,
-            yPos
-          );
-          yPos += 6;
-        }
-        yPos += 5;
-      });
-    }
-
-    // Top Skills Detailed
-    if (analysis.topSkills && analysis.topSkills.length > 0) {
-      if (yPos > 200) {
-        pdf.addPage();
-        yPos = 30;
-      }
-
-      yPos += 10;
-      pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(59, 130, 246);
-      pdf.text("Top Skills Ranking:", margin, yPos);
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(55, 65, 81);
-      yPos += 10;
-
-      analysis.topSkills.slice(0, 15).forEach((skill, index) => {
-        if (yPos > 270) {
-          pdf.addPage();
-          yPos = 30;
-        }
-
-        const level = skill.level || "Detected";
-        const confidence = skill.confidence
-          ? ` - ${Math.round(skill.confidence * 100)}% confidence`
-          : "";
-
-        pdf.text(
-          `${index + 1}. ${skill.name} (${level}${confidence})`,
-          margin + 5,
-          yPos
-        );
-        yPos += 7;
-      });
-    }
-  };
-
-  // CREATE QUALITY METRICS BREAKDOWN
-  const createQualityMetricsBreakdown = async (
-    pdf,
-    resume,
-    margin,
-    contentWidth,
-    pageWidth,
-    pageHeight
-  ) => {
-    const metrics = resume.analysis.qualityMetrics;
-
-    pdf.setFontSize(20);
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("QUALITY METRICS BREAKDOWN", margin, 30);
-
-    let yPos = 50;
-    pdf.setFontSize(12);
-    pdf.setTextColor(55, 65, 81);
-
-    if (metrics) {
-      // Quality Scores Table
-      const qualityItems = [
-        {
-          name: "Overall Quality Score",
-          value: metrics.overallScore,
-          description: "Comprehensive quality assessment across all dimensions",
-        },
-        {
-          name: "Section Completeness",
-          value: metrics.sectionCompleteness,
-          description: "Presence of essential resume sections",
-        },
-        {
-          name: "Skill Diversity",
-          value: metrics.skillDiversity,
-          description: "Variety of skills across different categories",
-        },
-        {
-          name: "Content Depth",
-          value: metrics.contentDepth,
-          description: "Detailed and comprehensive content quality",
-        },
-        {
-          name: "Contact Completeness",
-          value: metrics.contactCompleteness,
-          description: "Complete contact information provided",
-        },
-      ].filter((item) => item.value !== undefined);
-
-      qualityItems.forEach((item) => {
-        if (yPos > 250) {
-          pdf.addPage();
-          yPos = 30;
-        }
-
-        // Score box with color coding
-        const score = item.value;
-        const color =
-          score >= 80
-            ? [34, 197, 94]
-            : score >= 60
-            ? [251, 191, 36]
-            : [239, 68, 68];
-
-        pdf.setFillColor(...color);
-        pdf.roundedRect(margin, yPos - 5, 20, 12, 2, 2, "F");
-
-        pdf.setFontSize(10);
-        pdf.setTextColor(255, 255, 255);
-        pdf.text(`${score}%`, margin + 2, yPos + 2);
-
-        // Metric details
-        pdf.setFontSize(12);
-        pdf.setTextColor(55, 65, 81);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(item.name, margin + 30, yPos + 2);
-
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(10);
-        pdf.setTextColor(107, 114, 128);
-        const wrappedDesc = pdf.splitTextToSize(
-          item.description,
-          contentWidth - 40
-        );
-        pdf.text(wrappedDesc, margin + 30, yPos + 8);
-
-        yPos += 20 + (wrappedDesc.length - 1) * 4;
-      });
-
-      // Quality Improvement Suggestions
-      yPos += 20;
-      if (yPos > 200) {
-        pdf.addPage();
-        yPos = 30;
-      }
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14);
-      pdf.setTextColor(59, 130, 246);
-      pdf.text("Quality Improvement Recommendations:", margin, yPos);
-      yPos += 15;
-
-      const suggestions = [];
-      if (metrics.sectionCompleteness < 80)
-        suggestions.push(
-          "Add missing resume sections such as Summary, Projects, or Certifications"
-        );
-      if (metrics.skillDiversity < 70)
-        suggestions.push(
-          "Include more diverse skills across technical, soft, and domain-specific categories"
-        );
-      if (metrics.contentDepth < 70)
-        suggestions.push(
-          "Expand descriptions with quantified achievements and specific examples"
-        );
-      if (metrics.contactCompleteness < 90)
-        suggestions.push(
-          "Complete contact information including LinkedIn profile and portfolio links"
-        );
-
-      if (suggestions.length === 0) {
-        suggestions.push(
-          "Excellent quality across all dimensions - maintain current standards"
-        );
-      }
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      pdf.setTextColor(55, 65, 81);
-
-      suggestions.forEach((suggestion) => {
-        const wrapped = pdf.splitTextToSize(`• ${suggestion}`, contentWidth);
-        wrapped.forEach((line) => {
-          if (yPos > 270) {
-            pdf.addPage();
-            yPos = 30;
-          }
-          pdf.text(line, margin, yPos);
-          yPos += 7;
-        });
-        yPos += 3;
+    const shareText = `Check out my Resume Analysis! Quality Score: ${selectedResume.analysis.qualityMetrics?.overallScore || Math.round(selectedResume.analysis.confidence * 100)}%, Skills: ${selectedResume.analysis.skillAnalysis?.totalSkills || 0}`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'Resume Analysis Report',
+        text: shareText,
+        url: window.location.href
+      }).then(() => {
+        toast.success('📱 Report shared successfully!');
       });
     } else {
-      pdf.text(
-        "Quality metrics are being processed and will be available in future analyses.",
-        margin,
-        yPos
-      );
+      navigator.clipboard.writeText(`${shareText}\n${window.location.href}`)
+        .then(() => toast.success('🔗 Report link copied to clipboard!'))
+        .catch(() => toast.error('Failed to copy to clipboard'));
     }
   };
 
-  // CREATE RECOMMENDATIONS SECTION
-  const createRecommendationsSection = async (
-    pdf,
-    resume,
-    margin,
-    contentWidth,
-    pageWidth,
-    pageHeight
-  ) => {
-    pdf.setFontSize(20);
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("ACTIONABLE RECOMMENDATIONS", margin, 30);
+  // 🔧 REAL EMAIL FUNCTION
+  const emailReport = () => {
+    if (!selectedResume) {
+      toast.error('Please select a resume to share');
+      return;
+    }
 
-    let yPos = 50;
-    pdf.setFontSize(12);
-    pdf.setTextColor(55, 65, 81);
+    const { skillAnalysis, qualityMetrics } = selectedResume.analysis;
+    
+    const subject = encodeURIComponent(`Resume Analysis Report - ${selectedResume.fileName}`);
+    const body = encodeURIComponent(`Hi,
 
-    const recommendations = [
-      {
-        priority: "HIGH",
-        title: "Optimize for ATS Systems",
-        description:
-          "Ensure your resume passes Applicant Tracking Systems by using standard section headers, avoiding complex formatting, and including relevant keywords from job descriptions.",
-        color: [239, 68, 68],
-      },
-      {
-        priority: "HIGH",
-        title: "Quantify Your Achievements",
-        description:
-          'Add specific numbers, percentages, and metrics to your accomplishments. For example: "Increased sales by 25%" instead of "Improved sales performance."',
-        color: [239, 68, 68],
-      },
-      {
-        priority: "MEDIUM",
-        title: "Enhance Technical Skills Section",
-        description:
-          "Organize technical skills by proficiency level (Expert, Proficient, Familiar) and include relevant certifications or years of experience.",
-        color: [251, 191, 36],
-      },
-      {
-        priority: "MEDIUM",
-        title: "Add Professional Summary",
-        description:
-          "Include a 2-3 sentence professional summary highlighting your key strengths, experience level, and career objectives.",
-        color: [251, 191, 36],
-      },
-      {
-        priority: "LOW",
-        title: "Include Relevant Projects",
-        description:
-          "Add a projects section showcasing relevant work, personal projects, or contributions that demonstrate your skills in action.",
-        color: [34, 197, 94],
-      },
-    ];
+I've generated a comprehensive resume analysis report:
 
-    recommendations.forEach((rec, index) => {
-      if (yPos > 240) {
-        pdf.addPage();
-        yPos = 30;
-      }
+📁 File: ${selectedResume.fileName}
+📅 Analysis Date: ${new Date(selectedResume.analyzedAt).toLocaleDateString()}
+📈 Quality Score: ${qualityMetrics?.overallScore || Math.round(selectedResume.analysis.confidence * 100)}%
 
-      // Priority badge
-      pdf.setFillColor(...rec.color);
-      pdf.roundedRect(margin, yPos - 3, 25, 10, 2, 2, "F");
-      pdf.setFontSize(8);
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(rec.priority, margin + 2, yPos + 3);
+💼 Skills Summary:
+• Total Skills: ${skillAnalysis?.totalSkills || 0}
+• High Confidence: ${skillAnalysis?.highConfidenceSkills || 0}
+• Expert Level: ${skillAnalysis?.expertSkills || 0}
 
-      // Recommendation content
-      pdf.setFontSize(12);
-      pdf.setTextColor(55, 65, 81);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(`${index + 1}. ${rec.title}`, margin + 35, yPos + 2);
+🎯 Top Skills: ${skillAnalysis?.topSkills?.slice(0, 5).map(skill => skill.name || skill).join(', ') || 'None detected'}
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.setTextColor(75, 85, 99);
-      const wrapped = pdf.splitTextToSize(rec.description, contentWidth - 40);
-      pdf.text(wrapped, margin + 35, yPos + 8);
-
-      yPos += 20 + (wrapped.length - 1) * 4;
-    });
-  };
-
-  // CREATE COMPARISON SECTION
-  const createComparisonSection = async (
-    pdf,
-    allResumes,
-    currentResume,
-    margin,
-    contentWidth,
-    pageWidth,
-    pageHeight
-  ) => {
-    pdf.setFontSize(20);
-    pdf.setTextColor(59, 130, 246);
-    pdf.text("RESUME COMPARISON ANALYSIS", margin, 30);
-
-    let yPos = 50;
-    pdf.setFontSize(12);
-    pdf.setTextColor(55, 65, 81);
-
-    // Sort resumes by analysis date
-    const sortedResumes = [...allResumes].sort(
-      (a, b) => new Date(a.analyzedAt) - new Date(b.analyzedAt)
-    );
-
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Resume Evolution Timeline:", margin, yPos);
-    pdf.setFont("helvetica", "normal");
-    yPos += 15;
-
-    sortedResumes.forEach((resume, index) => {
-      if (yPos > 250) {
-        pdf.addPage();
-        yPos = 30;
-      }
-
-      const isCurrentResume = resume.id === currentResume.id;
-      const analysis = resume.analysis;
-      const qualityScore =
-        analysis.qualityMetrics?.overallScore ||
-        Math.round(analysis.confidence * 100);
-
-      // Timeline marker
-      pdf.setFillColor(isCurrentResume ? [59, 130, 246] : [156, 163, 175]);
-      pdf.circle(margin + 5, yPos - 2, 3, "F");
-
-      // Resume details
-      pdf.setFont("helvetica", isCurrentResume ? "bold" : "normal");
-      pdf.setTextColor(isCurrentResume ? [59, 130, 246] : [55, 65, 81]);
-      pdf.text(
-        `${resume.fileName}${isCurrentResume ? " (Current)" : ""}`,
-        margin + 15,
-        yPos
-      );
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.setTextColor(107, 114, 128);
-      pdf.text(
-        `Analyzed: ${new Date(resume.analyzedAt).toLocaleDateString()}`,
-        margin + 15,
-        yPos + 6
-      );
-      pdf.text(
-        `Quality Score: ${qualityScore}% | Skills: ${analysis.skillAnalysis.totalSkills}`,
-        margin + 15,
-        yPos + 12
-      );
-
-      // Improvement indicator
-      if (index > 0) {
-        const prevResume = sortedResumes[index - 1];
-        const prevScore =
-          prevResume.analysis.qualityMetrics?.overallScore ||
-          Math.round(prevResume.analysis.confidence * 100);
-        const improvement = qualityScore - prevScore;
-
-        if (improvement !== 0) {
-          pdf.setFontSize(9);
-          const color = improvement > 0 ? [34, 197, 94] : [239, 68, 68];
-          pdf.setTextColor(...color);
-          pdf.text(
-            `${improvement > 0 ? "↑" : "↓"} ${Math.abs(
-              improvement
-            )}% quality change`,
-            margin + 15,
-            yPos + 18
-          );
-        }
-      }
-
-      yPos += 25;
-      pdf.setFontSize(12);
-    });
+Generated by AI Resume Analyzer
+${window.location.origin}`);
+    
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+    toast.success('📧 Email client opened with report!');
   };
 
   return (
-    <motion.div
-      className="bg-white rounded-xl p-6 shadow-lg border border-gray-200"
+    <motion.div 
+      className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-gray-900">
-          📤 Comprehensive Export & Share
-        </h3>
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">📤 Export & Share</h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Export your analysis results and share insights
+          </p>
+        </div>
+        
         {isExporting && (
           <div className="flex items-center space-x-2">
-            <div className="w-40 bg-gray-200 rounded-full h-3">
-              <div
-                className="bg-blue-600 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${exportProgress}%` }}
-              />
-            </div>
-            <span className="text-sm text-gray-600 font-medium">
-              {exportProgress}%
-            </span>
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+            <span className="text-sm text-blue-600 dark:text-blue-400">Exporting...</span>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* COMPREHENSIVE PDF Export Button */}
+        {/* Export PDF - REAL FUNCTION */}
         <button
-          onClick={exportComprehensiveReport}
+          onClick={generatePDFReport}
           disabled={isExporting || !selectedResume}
-          className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-red-400 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex flex-col items-center p-4 border-2 border-dashed border-blue-300 dark:border-blue-600 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
-            <svg
-              className="w-6 h-6 text-red-600"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M4 18h12V6l-4-4H4v16zM9 1H3a1 1 0 00-1 1v16a1 1 0 001 1h14a1 1 0 001-1V5.414a1 1 0 00-.293-.707l-4-4A1 1 0 0013 0H9z" />
-            </svg>
-          </div>
-          <span className="font-medium text-gray-900">Complete Report</span>
-          <span className="text-xs text-gray-500 mt-1 text-center">
-            All analytics & insights
-          </span>
+          <div className="text-2xl mb-2">📄</div>
+          <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">Export PDF</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Complete report</span>
         </button>
 
-        {/* Other export options remain the same... */}
+        {/* Export Charts - REAL FUNCTION */}
         <button
-          onClick={() => alert("Chart-only export coming soon!")}
+          onClick={exportCharts}
           disabled={isExporting}
-          className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors disabled:opacity-50"
+          className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
-            <span className="text-2xl">📊</span>
-          </div>
-          <span className="font-medium text-gray-900">Charts Only</span>
-          <span className="text-xs text-gray-500 mt-1">Visual data</span>
+          <div className="text-2xl mb-2">🖼️</div>
+          <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">Export Charts</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">PNG images</span>
         </button>
 
+        {/* Share Report - REAL FUNCTION */}
         <button
-          onClick={() => alert("Share feature coming soon!")}
-          disabled={isExporting}
-          className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50"
-        >
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-            <span className="text-2xl">🔗</span>
-          </div>
-          <span className="font-medium text-gray-900">Share Report</span>
-          <span className="text-xs text-gray-500 mt-1">Generate link</span>
-        </button>
-
-        <button
-          onClick={() => {
-            if (!selectedResume) {
-              alert("Please select a resume first.");
-              return;
-            }
-            const subject = encodeURIComponent(
-              `Comprehensive Resume Analysis Report - ${selectedResume.fileName}`
-            );
-            const body = encodeURIComponent(
-              `Hi,\n\nI've generated a comprehensive resume analysis report using the Career Journal Analytics Platform.\n\n📊 Report Highlights:\n• Resume: ${
-                selectedResume.fileName
-              }\n• Total Skills Detected: ${
-                selectedResume.analysis.skillAnalysis.totalSkills
-              }\n• Quality Score: ${
-                selectedResume.analysis.qualityMetrics?.overallScore ||
-                Math.round(selectedResume.analysis.confidence * 100)
-              }%\n• Analysis Date: ${new Date(
-                selectedResume.analyzedAt
-              ).toLocaleDateString()}\n\nThis detailed report includes:\n✅ Executive Summary\n✅ Visual Analytics Charts\n✅ Comprehensive Skill Analysis\n✅ Quality Metrics Breakdown\n✅ Actionable Recommendations\n✅ Resume Evolution Comparison\n\nBest regards`
-            );
-            window.open(`mailto:?subject=${subject}&body=${body}`);
-          }}
+          onClick={shareReport}
           disabled={isExporting || !selectedResume}
-          className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-colors disabled:opacity-50"
+          className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-            <span className="text-2xl">📧</span>
-          </div>
-          <span className="font-medium text-gray-900">Email Report</span>
-          <span className="text-xs text-gray-500 mt-1">Share via email</span>
+          <div className="text-2xl mb-2">🔗</div>
+          <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">Share Report</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Generate link</span>
+        </button>
+
+        {/* Email Report - REAL FUNCTION */}
+        <button
+          onClick={emailReport}
+          disabled={isExporting || !selectedResume}
+          className="flex flex-col items-center p-4 border-2 border-dashed border-green-300 dark:border-green-600 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <div className="text-2xl mb-2">📧</div>
+          <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">Email Report</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Send via email</span>
         </button>
       </div>
-
-      {isExporting && (
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mt-0.5"></div>
-            <div>
-              <p className="text-sm text-blue-800 font-medium mb-1">
-                🚀 Generating comprehensive analytics report...
-              </p>
-              <p className="text-xs text-blue-600">
-                Including executive summary, visual charts, detailed analysis,
-                quality metrics, and actionable recommendations.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </motion.div>
   );
 };

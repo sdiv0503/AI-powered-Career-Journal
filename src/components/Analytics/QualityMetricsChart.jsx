@@ -16,7 +16,7 @@ const QualityMetricsChart = ({ analyzedResumes, selectedResumeId }) => {
       .sort((a, b) => new Date(a.analyzedAt) - new Date(b.analyzedAt))
       .map((resume, index) => ({
         version: `V${index + 1}`,
-        fileName: resume.fileName.substring(0, 15) + '...',
+fileName: (resume.name ?? 'Untitled').substring(0, 15) + '...',
         date: new Date(resume.analyzedAt).toLocaleDateString(),
         overallScore: resume.analysis.qualityMetrics?.overallScore || Math.round(resume.analysis.confidence * 100),
         sectionCompleteness: resume.analysis.qualityMetrics?.sectionCompleteness || 70,

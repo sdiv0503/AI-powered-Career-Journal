@@ -413,67 +413,79 @@ export class EnhancedPDFParser {
   }
 
   // ✅ ENHANCED: Better contact extraction with multiple strategies
-  extractContactWithEnhancedDetection(sections, fullText) {
-    const contact = {};
+  // ✅ CORRECTED: extractContactWithEnhancedDetection method
+extractContactWithEnhancedDetection(sections, fullText) {
+  const contact = {};
+  
+  // Strategy 1: Look for dedicated contact section
+  const contactSection = sections.find((s) => s.type === "contact");
+  // Strategy 2: Look in header section
+  const headerSection = sections.find((s) => s.type === "header");
+  // Strategy 3: Scan first few lines of all text
+  const topLines = fullText.split("\n").slice(0, 10).join(" ");
+  
+  // Combine all potential contact text
+  const contactText = [
+    contactSection?.content.join(" ") || "",
+    headerSection?.content.join(" ") || "",
+    topLines,
+  ].join(" ");
 
-    // Strategy 1: Look for dedicated contact section
-    const contactSection = sections.find((s) => s.type === "contact");
+  console.log("🔍 Contact detection text:", contactText.substring(0, 200));
 
-    // Strategy 2: Look in header section
-    const headerSection = sections.find((s) => s.type === "header");
+  // ✅ FIXED: Enhanced extraction patterns with proper phone handling
+  const patterns = {
+    email: /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+    // 🎯 FIXED: This regex captures only the 10-digit number, ignoring country codes
+    phone: /(?:\+91[-.\s]?|1[-.\s]?)?(\d{10})/g,
+    linkedin: /linkedin\.com\/in\/([a-zA-Z0-9-]+)/i,
+    github: /github\.com\/([a-zA-Z0-9-]+)/i,
+    website: /(https?:\/\/[^\s]+)/g,
+  };
 
-    // Strategy 3: Scan first few lines of all text
-    const topLines = fullText.split("\n").slice(0, 10).join(" ");
-
-    // Combine all potential contact text
-    const contactText = [
-      contactSection?.content.join(" ") || "",
-      headerSection?.content.join(" ") || "",
-      topLines,
-    ].join(" ");
-
-    console.log("🔍 Contact detection text:", contactText.substring(0, 200));
-
-    // Enhanced extraction patterns
-    const patterns = {
-      email: /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
-      phone: /(?:\+?1[-.\s]*)?(\(?[2-9]\d{2}\)?[-.\s]*[2-9]\d{2}[-.\s]*\d{4})/g,
-      linkedin: /linkedin\.com\/in\/([a-zA-Z0-9-]+)/i,
-      github: /github\.com\/([a-zA-Z0-9-]+)/i,
-      website: /(https?:\/\/[^\s]+)/g,
-    };
-
-    // Extract using patterns
-    Object.entries(patterns).forEach(([key, pattern]) => {
+  // Extract using patterns
+  Object.entries(patterns).forEach(([key, pattern]) => {
+    if (key === "phone") {
+      // Special handling for phone numbers to extract only 10 digits
+      const phoneMatches = [...contactText.matchAll(pattern)];
+      if (phoneMatches.length > 0) {
+        // Use the captured group (index 1) which contains only the 10 digits
+        contact.phone = phoneMatches[0][1];
+      }
+    } else if (key === "linkedin") {
       const matches = contactText.match(pattern);
       if (matches) {
-        if (key === "linkedin") {
-          contact.linkedin = `https://linkedin.com/in/${matches[1]}`;
-        } else if (key === "github") {
-          contact.github = `https://github.com/${matches[1]}`;
-        } else if (key === "phone") {
-          // Extract phone without leading country code
-          contact.phone = matches[1] ? matches[1] : matches[0];
-        } else {
-          contact[key] = matches[0];
-        }
+        contact.linkedin = `https://linkedin.com/in/${matches[1]}`;
       }
-    });
-
-    // Extract name using NLP
-    try {
-      const doc = nlp(contactText);
-      const people = doc.people().out("array");
-      if (people.length > 0) {
-        contact.name = people[0];
+    } else if (key === "github") {
+      const matches = contactText.match(pattern);
+      if (matches) {
+        contact.github = `https://github.com/${matches[1]}`;
       }
-    } catch (error) {
-      console.log("Name extraction failed, using fallback");
+    } else {
+      // For email and website, use the full match
+      const matches = contactText.match(pattern);
+      if (matches) {
+        contact[key] = matches[0];
+      }
     }
+  });
 
-    console.log("✅ Extracted contact info:", contact);
-    return contact;
+  // Extract name using NLP
+  try {
+    const doc = nlp(contactText);
+    const people = doc.people().out("array");
+    if (people.length > 0) {
+      contact.name = people[0];
+    }
+  } catch (error) {
+    console.log("Name extraction failed, using fallback");
   }
+
+  console.log("✅ Extracted contact info:", contact);
+  return contact;
+}
+
 
   // 💼 Extract skills with context awareness
   extractSkillsWithContext(sections) {
