@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Global smooth scrolling and dark mode transitions */
+/* Global styles with enhanced dark mode transitions */
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -13,12 +13,38 @@
     transition-property: background-color, color;
     transition-duration: 300ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    /* Light mode default */
+    background-color: #f9fafb;
+    color: #111827;
+  }
+
+  /* Dark mode configuration */
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Dark mode body styles */
+  body.dark,
+  .dark body {
+    background-color: #111827;
+    color: #f9fafb;
+  }
+
+  /* Enhanced form elements for both modes */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  textarea,
+  select {
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 }
 
 /* Custom utilities that extend Tailwind */
 @layer utilities {
-  /* Enhanced line clamp utilities for better browser support */
+  /* Enhanced line clamp utilities */
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;
@@ -26,7 +52,7 @@
     -webkit-line-clamp: 1;
     line-clamp: 1;
   }
-  
+
   .line-clamp-3 {
     overflow: hidden;
     display: -webkit-box;
@@ -35,7 +61,7 @@
     line-clamp: 3;
   }
 
-  /* Card hover lift effect with dark mode support */
+  /* Enhanced hover lift with dark mode support */
   .hover-lift {
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   }
@@ -46,13 +72,10 @@
   }
 
   .dark .hover-lift:hover {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 25px rgba(255, 255, 255, 0.1);
   }
-}
 
-/* Custom component styles */
-@layer components {
-  /* Enhanced focus styles for accessibility with dark mode */
+  /* Enhanced focus styles */
   .focus-enhanced:focus-visible {
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
@@ -62,7 +85,7 @@
     outline-color: #60a5fa;
   }
 
-  /* Custom range slider styling */
+  /* Enhanced range slider styling */
   .range-slider {
     -webkit-appearance: none;
     appearance: none;
@@ -70,6 +93,7 @@
     cursor: pointer;
   }
 
+  /* WebKit (Chrome, Safari) */
   .range-slider::-webkit-slider-track {
     background: #e5e7eb;
     height: 6px;
@@ -92,16 +116,7 @@
     border: 2px solid white;
   }
 
-  .range-slider::-moz-range-thumb {
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    cursor: pointer;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
-
+  /* Mozilla (Firefox) */
   .range-slider::-moz-range-track {
     background: #e5e7eb;
     height: 6px;
@@ -113,31 +128,40 @@
     background: #4b5563;
   }
 
-  /* Smooth transitions for interactive elements */
+  .range-slider::-moz-range-thumb {
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Enhanced smooth transitions */
   .transition-smooth {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-/* Custom scrollbar for dark mode */
+/* Enhanced dark mode styling for scrollbar and forms */
 .dark ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: #374151;
+  background: #374151; /* gray-700 */
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #6B7280;
-  border-radius: 3px;
+  background: #6b7280; /* gray-500 */
+  border-radius: 4px;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: #9ca3af; /* gray-400 */
 }
 
-/* Dark mode form input styling */
 .dark input[type="text"],
 .dark input[type="email"],
 .dark input[type="password"],
@@ -145,8 +169,8 @@
 .dark input[type="date"],
 .dark textarea,
 .dark select {
-  background-color: #374151;
-  border-color: #4b5563;
+  background-color: #374151; /* gray-700 */
+  border-color: #4b5563; /* gray-600 */
   color: #f9fafb;
 }
 
@@ -157,13 +181,42 @@
 .dark input[type="date"]:focus,
 .dark textarea:focus,
 .dark select:focus {
-  background-color: #4b5563;
-  border-color: #60a5fa;
+  background-color: #4b5563; /* gray-600 */
+  border-color: #60a5fa; /* blue-400 */
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+  outline: none;
 }
 
-/* Dark mode placeholder text */
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #9ca3af;
+  color: #9ca3af; /* gray-400 */
+}
+
+/* Additional dark mode overrides for Tailwind utility classes */
+.dark .bg-white {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+.dark .bg-gray-50 {
+  background-color: #111827 !important; /* gray-900 */
+}
+.dark .bg-gray-100 {
+  background-color: #1f2937 !important; /* gray-800 */
+}
+.dark .text-gray-900 {
+  color: #f3f4f6 !important; /* gray-100 */
+}
+.dark .text-gray-800 {
+  color: #e5e7eb !important; /* gray-200 */
+}
+.dark .text-gray-700 {
+  color: #d1d5db !important; /* gray-300 */
+}
+.dark .text-gray-600 {
+  color: #9ca3af !important; /* gray-400 */
+}
+.dark .border-gray-200 {
+  border-color: #4b5563 !important; /* gray-600 */
+}
+.dark .border-gray-300 {
+  border-color: #6b7280 !important; /* gray-500 */
 }

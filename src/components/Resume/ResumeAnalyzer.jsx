@@ -1,61 +1,121 @@
-import React, { useState } from 'react';
-import ResumeUploader from './ResumeUploader';
-import { useResumeUpload } from '../../hooks/useResumeUpload';
+import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDropzone } from 'react-dropzone';
+import { Upload, FileText, AlertCircle, Check, ArrowLeft, ChartBarIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Header from '../Header';
 import { enhancedPdfParser } from '../../utils/pdfParser';
 import AnalyticsDashboard from '../Analytics/AnalyticsDashboard';
-import { ChartBarIcon } from '@heroicons/react/24/outline';
-import toast from 'react-hot-toast';
 
 const ResumeAnalyzer = () => {
+  // Combined state management
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [analyzedResumes, setAnalyzedResumes] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false); // NEW: Analytics toggle
-  
-  const { uploadResumes, uploading, uploadProgress, uploadedResumes } = useResumeUpload();
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({});
 
-  const handleFileUpload = async (filesWithMetadata) => {
-    try {
-      console.log('📤 Starting enhanced file upload process...');
-      
-      // First, upload files to Supabase
-      const uploadResults = await uploadResumes(filesWithMetadata);
-      
-      // Then, analyze the uploaded files with enhanced parser
-      if (uploadResults.length > 0) {
-        await analyzeUploadedFilesEnhanced(uploadResults);
-      }
-    } catch (error) {
-      console.error('❌ Enhanced Upload/Analysis error:', error);
-      toast.error('Failed to process files');
-    }
+  const navigate = useNavigate();
+
+  const handleGoBack = () => {
+    navigate('/');
   };
 
-  const analyzeUploadedFilesEnhanced = async (uploadResults) => {
+  // File validation
+  const validateFile = (file) => {
+    const validTypes = ['application/pdf'];
+    const maxSize = 10 * 1024 * 1024; // 10MB limit
+    
+    if (!validTypes.includes(file.type)) {
+      throw new Error(`${file.name}: Only PDF files are allowed`);
+    }
+    if (file.size > maxSize) {
+      throw new Error(`${file.name}: File size must be less than 10MB`);
+    }
+    return true;
+  };
+
+  // Combined upload and analysis handler
+  const onDrop = useCallback(async (acceptedFiles, rejectedFiles) => {
+    console.log('📁 Files dropped:', { accepted: acceptedFiles.length, rejected: rejectedFiles.length });
+    
+    // Handle rejected files
+    rejectedFiles.forEach(({ file, errors }) => {
+      errors.forEach(error => {
+        toast.error(`${file.name}: ${error.message}`);
+      });
+    });
+
+    // Process accepted files
+    const validFiles = [];
+    for (const file of acceptedFiles) {
+      try {
+        validateFile(file);
+        validFiles.push(file);
+        console.log('✅ Valid file:', file.name);
+      } catch (error) {
+        toast.error(error.message);
+      }
+    }
+
+    if (validFiles.length === 0) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Create file metadata
+      const filesWithMetadata = validFiles.map(file => ({
+        id: Date.now() + Math.random(),
+        file,
+        name: file.name,
+        size: file.size,
+        uploadedAt: new Date(),
+        status: 'uploaded',
+        progress: 100
+      }));
+
+      setUploadedFiles(prev => [...prev, ...filesWithMetadata]);
+      
+      // Immediately start analysis
+      await analyzeUploadedFiles(filesWithMetadata);
+      
+      toast.success(`Successfully processed ${validFiles.length} file(s)!`);
+      
+    } catch (error) {
+      toast.error('Failed to process uploaded files');
+      console.error('❌ Upload error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  // Analysis logic
+  const analyzeUploadedFiles = async (filesWithMetadata) => {
     setIsAnalyzing(true);
     const results = [];
 
     try {
-      for (const uploadedFile of uploadResults) {
-        toast.loading(`🧠 AI analyzing ${uploadedFile.fileName}...`, { id: uploadedFile.id });
+      for (const fileData of filesWithMetadata) {
+        toast.loading(`🧠 AI analyzing ${fileData.name}...`, { id: fileData.id });
         
         try {
-          // Parse with enhanced NLP parser
-          const analysisResult = await enhancedPdfParser.parseResume(uploadedFile.file);
+          const analysisResult = await enhancedPdfParser.parseResume(fileData.file);
           
           results.push({
-            ...uploadedFile,
+            ...fileData,
             analysis: analysisResult,
             analyzedAt: new Date()
           });
 
-          toast.success(`✅ AI analysis complete: ${uploadedFile.fileName}`, { id: uploadedFile.id });
+          toast.success(`✅ Analysis complete: ${fileData.name}`, { id: fileData.id });
           
         } catch (parseError) {
-          console.error(`Parse error for ${uploadedFile.fileName}:`, parseError);
-          toast.error(`Failed to analyze ${uploadedFile.fileName}`, { id: uploadedFile.id });
+          console.error(`Parse error for ${fileData.name}:`, parseError);
+          toast.error(`Failed to analyze ${fileData.name}`, { id: fileData.id });
           
           results.push({
-            ...uploadedFile,
+            ...fileData,
             analysis: null,
             error: parseError.message,
             analyzedAt: new Date()
@@ -78,147 +138,286 @@ const ResumeAnalyzer = () => {
     }
   };
 
-  const handleRemoveResume = (resumeId) => {
-    setAnalyzedResumes(prev => prev.filter(resume => resume.id !== resumeId));
-    toast.success('Resume removed');
+  // Dropzone configuration
+  const { getRootProps, getInputProps, isDragActive, isDragAccept, isDragReject } = useDropzone({
+    onDrop,
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 5,
+    maxSize: 10 * 1024 * 1024,
+    multiple: true,
+    disabled: isProcessing
+  });
+
+  // Dynamic styling for dropzone
+  const getDropzoneClassName = () => {
+    let baseClasses = "border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer";
+    
+    if (isDragAccept) return `${baseClasses} border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300`;
+    if (isDragReject) return `${baseClasses} border-rose-300 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300`;
+    if (isDragActive) return `${baseClasses} border-blue-300 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300`;
+    return `${baseClasses} border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-800/50`;
+  };
+
+  // File management
+  const removeFile = (fileId) => {
+    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
+    setAnalyzedResumes(prev => prev.filter(resume => resume.id !== fileId));
+    toast.success('File removed');
+  };
+
+  // Utility functions
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const toggleSection = (resumeId, section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [`${resumeId}-${section}`]: !prev[`${resumeId}-${section}`]
+    }));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🧠 AI Resume Analyzer
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Advanced AI-powered resume analysis with context-aware skill extraction, 
-            quality metrics, and personalized improvement recommendations.
-          </p>
-        </div>
+    <>
+      {/* Header */}
+      <Header />
+      
+      {/* Main Content with Dark Mode Support */}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-4xl mx-auto px-6 py-12">
+          
+          {/* Back Button */}
+          <button
+            onClick={handleGoBack}
+            className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 mb-8 group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
+            <span className="text-sm font-medium">Back to Home</span>
+          </button>
 
-        {/* Upload Component */}
-        <div className="mb-12">
-          <ResumeUploader 
-            onFileUpload={handleFileUpload}
-            maxFiles={5}
-          />
-        </div>
-
-        {/* Analysis Status */}
-        {(uploading || isAnalyzing) && (
-          <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-blue-900">
-                {uploading ? '📤 Uploading to secure cloud storage...' : '🧠 AI analyzing with NLP...'}
-              </h3>
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          {/* Hero Section */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" />
               </div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">AI Resume Analyzer</h1>
             </div>
-            <div className="text-blue-700 text-sm">
-              {uploading 
-                ? 'Securely uploading your files with end-to-end encryption...'
-                : 'Extracting skills, analyzing context, calculating quality metrics, and generating personalized recommendations...'
-              }
-            </div>
-          </div>
-        )}
-
-        {/* Results Display */}
-        {analyzedResumes.length > 0 && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">
-                📊 AI Analysis Results ({analyzedResumes.length})
-              </h2>
-              <div className="text-sm text-gray-500">
-                Powered by Natural Language Processing
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              {analyzedResumes.map((resume) => (
-                <EnhancedResumeAnalysisCard 
-                  key={resume.id} 
-                  resume={resume}
-                  onRemove={handleRemoveResume}
-                />
-              ))}
-            </div>
-
-            {/* NEW: Analytics Button */}
-            <div className="text-center mt-8">
-              <button
-                onClick={() => setShowAnalytics(!showAnalytics)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center space-x-2 shadow-lg"
-              >
-                <ChartBarIcon className="h-5 w-5" />
-                <span>{showAnalytics ? 'Hide Advanced Analytics' : 'View Advanced Analytics'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* NEW: Analytics Dashboard */}
-        {showAnalytics && analyzedResumes.length > 0 && (
-          <div className="mt-12">
-            <AnalyticsDashboard analyzedResumes={analyzedResumes} />
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!uploading && !isAnalyzing && analyzedResumes.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🎯</div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              Ready for AI-Powered Analysis
-            </h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Upload your resume to get detailed insights with our advanced NLP engine.
-              We'll analyze skills, quality metrics, and provide personalized recommendations.
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+              Upload your PDF resume for comprehensive AI-powered analysis including skill detection, 
+              ATS compatibility, and personalized recommendations.
             </p>
           </div>
-        )}
+
+          {/* Upload Area */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 mb-8">
+            <div {...getRootProps()} className={getDropzoneClassName()}>
+              <input {...getInputProps()} />
+              
+              <div className="flex flex-col items-center space-y-6">
+                {/* Dynamic Icon */}
+                <div className="relative">
+                  {isDragActive ? (
+                    <div className="animate-bounce">
+                      <Upload className="h-16 w-16 text-blue-500" />
+                    </div>
+                  ) : (
+                    <FileText className="h-16 w-16 text-gray-300 dark:text-gray-500" />
+                  )}
+                  {(isProcessing || isAnalyzing) && (
+                    <div className="absolute -top-2 -right-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent bg-white dark:bg-gray-800"></div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dynamic Text */}
+                <div className="text-center space-y-2">
+                  {isDragReject ? (
+                    <div className="text-rose-600 dark:text-rose-400">
+                      <p className="text-lg font-semibold">Invalid file type</p>
+                      <p className="text-sm text-rose-500 dark:text-rose-300">Please upload PDF files only</p>
+                    </div>
+                  ) : isDragActive ? (
+                    <div className="text-blue-600 dark:text-blue-400">
+                      <p className="text-lg font-semibold">Release to upload</p>
+                      <p className="text-sm text-blue-500 dark:text-blue-300">Drop your files here</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                        {isProcessing ? 'Processing...' : isAnalyzing ? 'Analyzing...' : 'Drop your resume here'}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        or <button type="button" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">browse files</button>
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        PDF • Max 5 files • 10MB each
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Analysis Status */}
+          {(isProcessing || isAnalyzing) && (
+            <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                  {isProcessing ? '📤 Processing files...' : '🧠 AI analyzing with NLP...'}
+                </h3>
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+              <div className="text-blue-700 dark:text-blue-300 text-sm">
+                {isProcessing 
+                  ? 'Validating and processing your uploaded files...'
+                  : 'Extracting skills, analyzing context, calculating quality metrics, and generating personalized recommendations...'
+                }
+              </div>
+            </div>
+          )}
+
+          {/* Uploaded Files List */}
+          {uploadedFiles.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Uploaded Files
+                </h3>
+                <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                  {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              
+              <div className="space-y-3">
+                {uploadedFiles.map((fileData) => (
+                  <div 
+                    key={fileData.id} 
+                    className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{fileData.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatFileSize(fileData.size)} • {fileData.uploadedAt.toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg">
+                        <Check className="h-3 w-3" />
+                        <span className="text-xs font-medium">Ready</span>
+                      </div>
+                      
+                      <button
+                        onClick={() => removeFile(fileData.id)}
+                        className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
+                        title="Remove file"
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Analysis Results */}
+          {analyzedResumes.length > 0 && (
+            <div className="space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  📊 AI Analysis Results ({analyzedResumes.length})
+                </h2>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Powered by Natural Language Processing
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                {analyzedResumes.map((resume) => (
+                  <EnhancedResumeAnalysisCard 
+                    key={resume.id} 
+                    resume={resume}
+                    onRemove={removeFile}
+                    expandedSections={expandedSections}
+                    toggleSection={toggleSection}
+                  />
+                ))}
+              </div>
+
+              {/* Analytics Button */}
+              <div className="text-center mt-8">
+                <button
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center space-x-2 shadow-lg"
+                >
+                  <ChartBarIcon className="h-5 w-5" />
+                  <span>{showAnalytics ? 'Hide Advanced Analytics' : 'View Advanced Analytics'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Analytics Dashboard */}
+          {showAnalytics && analyzedResumes.length > 0 && (
+            <div className="mt-12">
+              <AnalyticsDashboard analyzedResumes={analyzedResumes} />
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isProcessing && !isAnalyzing && analyzedResumes.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">🎯</div>
+              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Ready for AI-Powered Analysis
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                Upload your resume to get detailed insights with our advanced NLP engine.
+                We'll analyze skills, quality metrics, and provide personalized recommendations.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
 // Enhanced Analysis Results Card Component
-const EnhancedResumeAnalysisCard = ({ resume, onRemove }) => {
-  const [expandedSections, setExpandedSections] = useState({
-    overview: true,
-    skills: false,
-    quality: false,
-    recommendations: false
-  });
-
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const { analysis, fileName, analyzedAt, error } = resume;
+const EnhancedResumeAnalysisCard = ({ resume, onRemove, expandedSections, toggleSection }) => {
+  const { analysis, fileName, analyzedAt, error, id } = resume;
 
   if (error || !analysis) {
     return (
-      <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-xl p-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center text-red-600">
+          <div className="flex items-center text-red-600 dark:text-red-400">
             <span className="text-xl mr-3">⚠️</span>
             <div>
               <h3 className="font-semibold">{fileName}</h3>
-              <p className="text-sm text-red-500">{error || 'Analysis failed'}</p>
+              <p className="text-sm text-red-500 dark:text-red-300">{error || 'Analysis failed'}</p>
             </div>
           </div>
           <button
-            onClick={() => onRemove(resume.id)}
-            className="text-gray-400 hover:text-red-500 transition-colors"
+            onClick={() => onRemove(id)}
+            className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
           >
             <span className="sr-only">Remove</span>
             &times;
@@ -244,13 +443,13 @@ const EnhancedResumeAnalysisCard = ({ resume, onRemove }) => {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-gray-100">
+      <div className="p-6 border-b border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1">{fileName}</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">{fileName}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Analyzed {new Date(analyzedAt).toLocaleDateString()} • 
               {analysis.pageCount} pages • 
               {analysis.sectionCount || 'Multiple'} sections
@@ -261,11 +460,11 @@ const EnhancedResumeAnalysisCard = ({ resume, onRemove }) => {
               <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white ${getScoreColor(overallScore)}`}>
                 {overallScore}/100
               </div>
-              <p className="text-xs text-gray-500 mt-1">{getScoreLabel(overallScore)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getScoreLabel(overallScore)}</p>
             </div>
             <button
-              onClick={() => onRemove(resume.id)}
-              className="text-gray-400 hover:text-red-500 transition-colors"
+              onClick={() => onRemove(id)}
+              className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
             >
               &times;
             </button>
@@ -274,249 +473,71 @@ const EnhancedResumeAnalysisCard = ({ resume, onRemove }) => {
       </div>
 
       {/* Overview Section */}
-      <div className="p-6 bg-gray-50 border-b border-gray-100">
+      <div className="p-6 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
         <button
-          onClick={() => toggleSection('overview')}
+          onClick={() => toggleSection(id, 'overview')}
           className="flex items-center justify-between w-full text-left"
         >
-          <h4 className="text-lg font-semibold text-gray-900">📊 Quick Overview</h4>
-          <span className="text-gray-400">
-            {expandedSections.overview ? '▼' : '▶'}
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">📊 Quick Overview</h4>
+          <span className="text-gray-400 dark:text-gray-500">
+            {expandedSections[`${id}-overview`] ? '▼' : '▶'}
           </span>
         </button>
         
-        {expandedSections.overview && (
+        {expandedSections[`${id}-overview`] && (
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-3 bg-white rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{skillAnalysis.totalSkills}</div>
-              <div className="text-xs text-gray-600">Total Skills</div>
+            <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{skillAnalysis?.totalSkills || 0}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Total Skills</div>
             </div>
-            <div className="text-center p-3 bg-white rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{skillAnalysis.highConfidenceSkills || skillAnalysis.totalSkills}</div>
-              <div className="text-xs text-gray-600">High Confidence</div>
+            <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{skillAnalysis?.highConfidenceSkills || skillAnalysis?.totalSkills || 0}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">High Confidence</div>
             </div>
-            <div className="text-center p-3 bg-white rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">{skillAnalysis.expertSkills || 0}</div>
-              <div className="text-xs text-gray-600">Expert Level</div>
+            <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{skillAnalysis?.expertSkills || 0}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Expert Level</div>
             </div>
-            <div className="text-center p-3 bg-white rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">{Math.round(analysis.confidence * 100)}%</div>
-              <div className="text-xs text-gray-600">Parse Confidence</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Skills Analysis */}
-      <div className="p-6 border-b border-gray-100">
-        <button
-          onClick={() => toggleSection('skills')}
-          className="flex items-center justify-between w-full text-left"
-        >
-          <h4 className="text-lg font-semibold text-gray-900">💼 Skills Analysis</h4>
-          <span className="text-gray-400">
-            {expandedSections.skills ? '▼' : '▶'}
-          </span>
-        </button>
-
-        {expandedSections.skills && (
-          <div className="mt-4 space-y-4">
-            {/* Top Skills */}
-            <div>
-              <h5 className="font-medium text-gray-700 mb-3">🏆 Top Skills</h5>
-              <div className="flex flex-wrap gap-2">
-                {skillAnalysis.topSkills?.slice(0, 8).map((skill, index) => (
-                  <span
-                    key={skill.name}
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      index < 3
-                        ? 'bg-blue-100 text-blue-800'
-                        : index < 6
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    {skill.name} ({skill.level || 'Detected'})
-                  </span>
-                )) || (
-                  <span className="text-gray-500">No skills detected with high confidence</span>
-                )}
-              </div>
-            </div>
-
-            {/* Skills by Category */}
-            <div>
-              <h5 className="font-medium text-gray-700 mb-3">📂 By Category</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {skillAnalysis.skillsByCategory?.map(category => (
-                  <div key={category.category} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-700 capitalize">
-                        {category.category}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {category.count} skills
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {Object.entries(category.skills || {}).slice(0, 5).map(([skillName, skillData]) => (
-                        <div key={skillName} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">{skillName}</span>
-                          <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-500">{skillData.level || 'Detected'}</span>
-                            <div className={`w-2 h-2 rounded-full ${
-                              (skillData.confidence || 0.8) > 0.8 ? 'bg-green-400' :
-                              (skillData.confidence || 0.6) > 0.6 ? 'bg-yellow-400' : 'bg-red-400'
-                            }`} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )) || (
-                  <div className="text-gray-500 col-span-2">No categorized skills detected</div>
-                )}
-              </div>
+            <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{Math.round(analysis.confidence * 100)}%</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Parse Confidence</div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Quality Metrics */}
-      {qualityMetrics && (
-        <div className="p-6 border-b border-gray-100">
-          <button
-            onClick={() => toggleSection('quality')}
-            className="flex items-center justify-between w-full text-left"
-          >
-            <h4 className="text-lg font-semibold text-gray-900">📈 Resume Quality</h4>
-            <span className="text-gray-400">
-              {expandedSections.quality ? '▼' : '▶'}
-            </span>
-          </button>
-
-          {expandedSections.quality && (
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <QualityMetric
-                  label="Section Completeness"
-                  score={qualityMetrics.sectionCompleteness}
-                  description="Essential sections present"
-                />
-                <QualityMetric
-                  label="Skill Diversity"
-                  score={qualityMetrics.skillDiversity}
-                  description="Range of technical skills"
-                />
-                <QualityMetric
-                  label="Content Depth"
-                  score={qualityMetrics.contentDepth}
-                  description="Detail level of descriptions"
-                />
+      {/* Contact Information */}
+      {analysis.contact && Object.keys(analysis.contact).length > 0 && (
+        <div className="p-6">
+          <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">📞 Contact Information</h5>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            {analysis.contact.email && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Email:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{analysis.contact.email}</span>
               </div>
-            </div>
-          )}
+            )}
+            {analysis.contact.phone && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Phone:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{analysis.contact.phone}</span>
+              </div>
+            )}
+            {analysis.contact.linkedin && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">LinkedIn:</span>
+                <span className="ml-2 text-blue-600 dark:text-blue-400">{analysis.contact.linkedin}</span>
+              </div>
+            )}
+            {analysis.contact.github && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">GitHub:</span>
+                <span className="ml-2 text-blue-600 dark:text-blue-400">{analysis.contact.github}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
-
-      {/* Recommendations */}
-      <div className="p-6">
-        <button
-          onClick={() => toggleSection('recommendations')}
-          className="flex items-center justify-between w-full text-left"
-        >
-          <h4 className="text-lg font-semibold text-gray-900">💡 Recommendations</h4>
-          <span className="text-gray-400">
-            {expandedSections.recommendations ? '▼' : '▶'}
-          </span>
-        </button>
-
-        {expandedSections.recommendations && (
-          <div className="mt-4 space-y-3">
-            {/* Smart Skill Recommendations */}
-            {skillAnalysis.recommendations?.map((rec, index) => (
-              <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h5 className="font-medium text-blue-900 mb-1">{rec.title}</h5>
-                <p className="text-blue-700 text-sm mb-2">{rec.description}</p>
-                <div className="flex flex-wrap gap-1">
-                  {rec.skills?.map(skill => (
-                    <span key={skill} className="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )) || (
-              <div className="text-gray-500">No specific recommendations available</div>
-            )}
-
-            {/* Quality Recommendations */}
-            {qualityMetrics?.recommendations?.map((rec, index) => (
-              <div key={index} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-yellow-800 text-sm">{rec}</p>
-              </div>
-            ))}
-
-            {/* Contact Information */}
-            {analysis.contact && Object.keys(analysis.contact).length > 0 && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h5 className="font-medium text-gray-700 mb-2">📞 Contact Information</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  {analysis.contact.email && (
-                    <div>
-                      <span className="font-medium text-gray-700">Email:</span>
-                      <span className="ml-2 text-gray-600">{analysis.contact.email}</span>
-                    </div>
-                  )}
-                  {analysis.contact.phone && (
-                    <div>
-                      <span className="font-medium text-gray-700">Phone:</span>
-                      <span className="ml-2 text-gray-600">{analysis.contact.phone}</span>
-                    </div>
-                  )}
-                  {analysis.contact.linkedin && (
-                    <div>
-                      <span className="font-medium text-gray-700">LinkedIn:</span>
-                      <span className="ml-2 text-blue-600">{analysis.contact.linkedin}</span>
-                    </div>
-                  )}
-                  {analysis.contact.github && (
-                    <div>
-                      <span className="font-medium text-gray-700">GitHub:</span>
-                      <span className="ml-2 text-blue-600">{analysis.contact.github}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Quality Metric Component
-const QualityMetric = ({ label, score, description }) => {
-  const getColor = (score) => {
-    if (score >= 80) return 'bg-green-500';
-    if (score >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  return (
-    <div className="text-center p-4 bg-gray-50 rounded-lg">
-      <div className="mb-2">
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all duration-500 ${getColor(score)}`}
-            style={{ width: `${score}%` }}
-          />
-        </div>
-      </div>
-      <div className="text-lg font-bold text-gray-900">{score}%</div>
-      <div className="text-sm font-medium text-gray-700">{label}</div>
-      <div className="text-xs text-gray-500 mt-1">{description}</div>
     </div>
   );
 };
