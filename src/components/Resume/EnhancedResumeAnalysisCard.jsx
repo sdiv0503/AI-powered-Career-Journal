@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
+// Add this debug console.log at the top of EnhancedResumeAnalysisCard function
+console.log('Debug - Analysis data:', {
+  skillAnalysis,
+  skills: skillAnalysis?.skills,
+  skillsByCategory: skillAnalysis?.skillsByCategory,
+  allSkills: skillAnalysis?.allSkills,
+  technicalSkills: skillAnalysis?.technicalSkills
+});
+
+
 const EnhancedResumeAnalysisCard = ({ resume, onRemove }) => {
   const [expandedSections, setExpandedSections] = useState({
     overview: true,

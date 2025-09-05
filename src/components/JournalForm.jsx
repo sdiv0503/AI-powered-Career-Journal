@@ -5,8 +5,10 @@ import { db } from '../firebase/config';
 import SuccessMessage from "./SuccessMessage";
 import { updateUserStreak } from '../services/streakService';
 
+
 function JournalForm({ onBackToHome, onViewDashboard }) {
   const { currentUser } = useAuth();
+
 
   const initialFormData = {
     date: new Date().toISOString().split("T")[0],
@@ -26,11 +28,13 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     reflectionAnswers: {},
   };
 
+
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(initialFormData);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [streak, setStreak] = useState(0);
+
 
   // Mood options
   const moodOptions = [
@@ -40,6 +44,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     { emoji: "🚀", label: "Energized", value: "energized" },
     { emoji: "🔥", label: "On Fire", value: "fire" },
   ];
+
 
   // Activity options
   const activityOptions = [
@@ -71,6 +76,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     },
   ];
 
+
   // Popular technologies for autocomplete
   const popularTechs = [
     "React",
@@ -97,6 +103,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     "GraphQL",
   ];
 
+
   // Daily reflection prompts (rotates based on day)
   const reflectionPrompts = [
     { id: "improvement", question: "What skill did I improve today?" },
@@ -114,8 +121,10 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     { id: "milestone", question: "What milestone am I working toward?" },
   ];
 
+
   // Get today's prompt based on day of week
   const todaysPrompt = reflectionPrompts[new Date().getDay()];
+
 
   // Auto-save functionality
   useEffect(() => {
@@ -123,8 +132,10 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
       localStorage.setItem("journalDraft", JSON.stringify(formData));
     }, 2000);
 
+
     return () => clearTimeout(autoSave);
   }, [formData]);
+
 
   // Load draft on component mount
   useEffect(() => {
@@ -136,20 +147,25 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
       }
     }
 
+
     // Calculate streak
     const entries = JSON.parse(localStorage.getItem("journalEntries") || "[]");
     setStreak(calculateStreak(entries));
   }, []);
 
+
   const calculateStreak = (entries) => {
     if (entries.length === 0) return 0;
+
 
     let currentStreak = 0;
     const today = new Date();
 
+
     for (let i = 0; i < entries.length; i++) {
       const entryDate = new Date(entries[i].date);
       const daysDiff = Math.floor((today - entryDate) / (1000 * 60 * 60 * 24));
+
 
       if (daysDiff === currentStreak) {
         currentStreak++;
@@ -158,8 +174,10 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
       }
     }
 
+
     return currentStreak;
   };
+
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -167,6 +185,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
       [field]: value,
     }));
   };
+
 
   const handleArrayToggle = (field, value) => {
     setFormData((prev) => ({
@@ -177,6 +196,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     }));
   };
 
+
   const handleTechAdd = (tech) => {
     if (tech && !formData.technologies.includes(tech)) {
       setFormData((prev) => ({
@@ -186,6 +206,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     }
   };
 
+
   const handleTechRemove = (tech) => {
     setFormData((prev) => ({
       ...prev,
@@ -193,11 +214,13 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     }));
   };
 
+
   const handleQuickWinChange = (index, value) => {
     const newQuickWins = [...formData.quickWins];
     newQuickWins[index] = value;
     handleInputChange("quickWins", newQuickWins);
   };
+
 
   // Navigation functions with proper event prevention
   const nextStep = (e) => {
@@ -207,6 +230,7 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
     }
   };
 
+
   const prevStep = (e) => {
     e?.preventDefault();
     if (currentStep > 1) {
@@ -215,17 +239,21 @@ function JournalForm({ onBackToHome, onViewDashboard }) {
   };
 
 
+
 // In your handleSubmit function, add this after saving the entry:
 const handleSubmit = async (e) => {
   e.preventDefault();
+
 
   if (!currentUser) {
     alert('You must be logged in to create a journal entry.');
     return;
   }
 
+
   try {
     setIsSubmitting(true);
+
 
     const entryDate = new Date().toISOString().slice(0, 10);
     
@@ -250,18 +278,23 @@ const handleSubmit = async (e) => {
       createdAt: new Date(),
     };
 
+
     console.log("Saving entry with data:", entryData);
+
 
     const docRef = await addDoc(
       collection(db, "users", currentUser.uid, "journalEntries"),
       entryData
     );
 
+
     console.log("Entry saved with ID:", docRef.id);
+
 
     // Update streak after successful entry save
     const updatedStreakData = await updateUserStreak(currentUser.uid, entryDate);
     console.log("Streak updated:", updatedStreakData);
+
 
     // Clear draft and reset form
     localStorage.removeItem("journalDraft");
@@ -278,6 +311,7 @@ const handleSubmit = async (e) => {
 };
 
 
+
   if (showSuccess) {
     return (
       <SuccessMessage
@@ -288,8 +322,10 @@ const handleSubmit = async (e) => {
     );
   }
 
+
   const totalSteps = 4;
   const progressPercentage = (currentStep / totalSteps) * 100;
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8">
@@ -300,10 +336,9 @@ const handleSubmit = async (e) => {
             <h1 className="text-4xl font-bold text-gray-900">
               Daily Coding Journal
             </h1>
-            <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-4 py-2 rounded-full">
-              🔥 {streak} day streak
-            </div>
+            
           </div>
+
 
           {/* Progress Bar */}
           <div className="max-w-md mx-auto mb-4">
@@ -319,6 +354,7 @@ const handleSubmit = async (e) => {
           </div>
         </div>
 
+
         {/* Form Container */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <form onSubmit={handleSubmit}>
@@ -329,6 +365,7 @@ const handleSubmit = async (e) => {
                   How are you feeling today?
                 </h2>
 
+
                 {/* Date */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -338,9 +375,10 @@ const handleSubmit = async (e) => {
                     type="date"
                     value={formData.date}
                     onChange={(e) => handleInputChange("date", e.target.value)}
-                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                   />
                 </div>
+
 
                 {/* Mood Selector */}
                 <div>
@@ -360,11 +398,12 @@ const handleSubmit = async (e) => {
                         }`}
                       >
                         <div className="text-3xl mb-2">{mood.emoji}</div>
-                        <div className="text-sm font-medium">{mood.label}</div>
+                        <div className="text-sm font-medium text-gray-800">{mood.label}</div>
                       </button>
                     ))}
                   </div>
                 </div>
+
 
                 {/* Energy Level */}
                 <div>
@@ -387,6 +426,7 @@ const handleSubmit = async (e) => {
                   </div>
                 </div>
 
+
                 {/* Time Spent */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -408,7 +448,7 @@ const handleSubmit = async (e) => {
                             hours: parseInt(e.target.value) || 0,
                           })
                         }
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
                     <div className="flex-1">
@@ -426,7 +466,7 @@ const handleSubmit = async (e) => {
                             minutes: parseInt(e.target.value) || 0,
                           })
                         }
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
                   </div>
@@ -434,12 +474,14 @@ const handleSubmit = async (e) => {
               </div>
             )}
 
+
             {/* Step 2: Activities & Technologies */}
             {currentStep === 2 && (
               <div className="p-8 space-y-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   What did you work on?
                 </h2>
+
 
                 {/* Activities */}
                 <div>
@@ -470,6 +512,7 @@ const handleSubmit = async (e) => {
                   </div>
                 </div>
 
+
                 {/* Technologies */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -479,7 +522,7 @@ const handleSubmit = async (e) => {
                     <input
                       type="text"
                       placeholder="Type a technology and press Enter..."
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
                       onKeyPress={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
@@ -489,6 +532,7 @@ const handleSubmit = async (e) => {
                       }}
                     />
                   </div>
+
 
                   {/* Popular tech suggestions */}
                   <div className="mb-4">
@@ -501,13 +545,14 @@ const handleSubmit = async (e) => {
                           key={tech}
                           type="button"
                           onClick={() => handleTechAdd(tech)}
-                          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-full border border-gray-300"
+                          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-full border border-gray-300 text-gray-800"
                         >
                           {tech}
                         </button>
                       ))}
                     </div>
                   </div>
+
 
                   {/* Selected technologies */}
                   <div className="flex flex-wrap gap-2">
@@ -531,12 +576,14 @@ const handleSubmit = async (e) => {
               </div>
             )}
 
+
             {/* Step 3: Progress & Reflection */}
             {currentStep === 3 && (
               <div className="p-8 space-y-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   Reflect on your progress
                 </h2>
+
 
                 {/* Productivity & Focus Ratings */}
                 <div className="grid grid-cols-2 gap-6">
@@ -575,6 +622,7 @@ const handleSubmit = async (e) => {
                   </div>
                 </div>
 
+
                 {/* Main Progress */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -586,11 +634,12 @@ const handleSubmit = async (e) => {
                       handleInputChange("progress", e.target.value)
                     }
                     rows="4"
-                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
                     placeholder="What did you accomplish today? What features did you build? What bugs did you fix?"
                     required
                   />
                 </div>
+
 
                 {/* Quick Wins */}
                 <div>
@@ -606,10 +655,11 @@ const handleSubmit = async (e) => {
                         handleQuickWinChange(index, e.target.value)
                       }
                       placeholder={`Quick win #${index + 1}...`}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-3"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-3 text-gray-900 bg-white placeholder-gray-500"
                     />
                   ))}
                 </div>
+
 
                 {/* Daily Reflection Prompt */}
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-200">
@@ -625,12 +675,13 @@ const handleSubmit = async (e) => {
                       })
                     }
                     rows="3"
-                    className="w-full p-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white"
+                    className="w-full p-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white text-gray-900 placeholder-gray-500"
                     placeholder="Take a moment to reflect..."
                   />
                 </div>
               </div>
             )}
+
 
             {/* Step 4: Challenges, Learning & Code */}
             {currentStep === 4 && (
@@ -638,6 +689,7 @@ const handleSubmit = async (e) => {
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   Challenges, learnings & code
                 </h2>
+
 
                 {/* Challenges */}
                 <div>
@@ -650,10 +702,11 @@ const handleSubmit = async (e) => {
                       handleInputChange("challenges", e.target.value)
                     }
                     rows="4"
-                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
                     placeholder="What roadblocks did you hit? How did you overcome them? What resources helped?"
                   />
                 </div>
+
 
                 {/* Key Learnings */}
                 <div>
@@ -666,10 +719,11 @@ const handleSubmit = async (e) => {
                       handleInputChange("learnings", e.target.value)
                     }
                     rows="4"
-                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
                     placeholder="What new concepts did you learn? What 'aha!' moments did you have?"
                   />
                 </div>
+
 
                 {/* Code Snippet */}
                 <div>
@@ -682,10 +736,11 @@ const handleSubmit = async (e) => {
                       handleInputChange("codeSnippet", e.target.value)
                     }
                     rows="6"
-                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-gray-50"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-gray-50 text-gray-900 placeholder-gray-500"
                     placeholder="Paste important code snippets, commands, or technical notes here..."
                   />
                 </div>
+
 
                 {/* Tomorrow's Goals */}
                 <div>
@@ -698,12 +753,13 @@ const handleSubmit = async (e) => {
                       handleInputChange("tomorrowGoals", e.target.value)
                     }
                     rows="3"
-                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
                     placeholder="What's the ONE main thing you want to accomplish tomorrow?"
                   />
                 </div>
               </div>
             )}
+
 
             {/* Navigation Buttons */}
             <div className="bg-gray-50 px-8 py-6 flex justify-between">
@@ -733,6 +789,7 @@ const handleSubmit = async (e) => {
                 )}
               </div>
 
+
               <div>
                 {currentStep < totalSteps ? (
                   <button
@@ -756,6 +813,7 @@ const handleSubmit = async (e) => {
           </form>
         </div>
 
+
         {/* Auto-save indicator */}
         <div className="text-center mt-4 text-sm text-gray-500">
           💾 Auto-saving your progress...
@@ -764,5 +822,6 @@ const handleSubmit = async (e) => {
     </div>
   );
 }
+
 
 export default JournalForm;
