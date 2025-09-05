@@ -9,7 +9,6 @@ import {
   BeakerIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
-// import ExportManager from './ExportManager';
 
 
 // Custom responsive hook for React 19
@@ -94,6 +93,9 @@ const AchievementTracker = lazy(() =>
 );
 const ComparisonView = lazy(() =>
   retryImport(() => import("./ComparisonView"))
+);
+const ExportManager = lazy(() => 
+  retryImport(() => import("./ExportManager"))
 );
 
 // Enhanced loading spinner
@@ -1058,83 +1060,5 @@ const SummarySection = React.memo(({ title, children }) => (
   </div>
 ));
 
-// Simple Export Manager placeholder
-const ExportManager = React.memo(({ analyzedResumes, selectedResume }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-      📤 Export & Share
-    </h3>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <ExportButton
-        icon="📄"
-        title="Export PDF"
-        description="Complete report"
-        onClick={() => alert("PDF export coming soon!")}
-      />
-      <ExportButton
-        icon="🖼️"
-        title="Export Charts"
-        description="PNG images"
-        onClick={() => alert("Chart export coming soon!")}
-      />
-      <ExportButton
-        icon="🔗"
-        title="Share Report"
-        description="Generate link"
-        onClick={() => alert("Share feature coming soon!")}
-      />
-      <ExportButton
-        icon="📧"
-        title="Email Report"
-        description="Send via email"
-        onClick={() => {
-          const subject = encodeURIComponent(
-            `Resume Analysis Report - ${selectedResume?.fileName || "Report"}`
-          );
-          const body = encodeURIComponent(
-            `Hi,\n\nI've generated a resume analysis report. Here are the key insights:\n\n${
-              selectedResume
-                ? `Resume: ${selectedResume.fileName}\nTotal Skills: ${
-                    selectedResume.analysis.skillAnalysis.totalSkills
-                  }\nQuality Score: ${
-                    selectedResume.analysis.qualityMetrics?.overallScore ||
-                    Math.round(selectedResume.analysis.confidence * 100)
-                  }%`
-                : "Please generate a report first."
-            }\n\nBest regards`
-          );
-          window.open(`mailto:?subject=${subject}&body=${body}`);
-        }}
-      />
-    </div>
-  </div>
-));
-
-// Export Button Component
-const ExportButton = React.memo(({ icon, title, description, onClick }) => (
-  <button
-    onClick={onClick}
-    className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-  >
-    <div className="text-2xl mb-2">{icon}</div>
-    <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-      {title}
-    </span>
-    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-      {description}
-    </span>
-  </button>
-));
-
-// Set display names for React DevTools
-MetricCard.displayName = "MetricCard";
-PriorityImpactCard.displayName = "PriorityImpactCard";
-PriorityCard.displayName = "PriorityCard";
-ResumeSummaryCard.displayName = "ResumeSummaryCard";
-SummarySection.displayName = "SummarySection";
-ExportManager.displayName = "ExportManager";
-ExportButton.displayName = "ExportButton";
-AnalysisTypeCard.displayName = "AnalysisTypeCard";
-AIInsightsDisplay.displayName = "AIInsightsDisplay";
 
 export default AnalyticsDashboard;
