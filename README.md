@@ -72,3 +72,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for better developer self-reflection tools
 - Built during my web development learning journey
 - Thanks to the React and Tailwind CSS communities for excellent documentation
+
