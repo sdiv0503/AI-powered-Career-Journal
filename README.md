@@ -2,8 +2,6 @@
 
 A modern, interactive web application for tracking coding progress and career development.
 
-![Career Journal Screenshot](images\image.png)
-
 ## ✨ Features
 
 - **📝 Daily Progress Logging** - Track your coding activities and achievements
@@ -63,7 +61,7 @@ cd career-journal
 **Your Name**
 - GitHub: [@YourUsername](https://github.com/sdiv0503)
 - LinkedIn: [Your LinkedIn](http://linkedin.com/in/divyanshhsharma)
-- Email: sharmadivyansh067@gmail.com
+- Email: sdivyansh0503@gmail.com
 
 ## 📄 License
 
